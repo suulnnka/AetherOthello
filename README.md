@@ -3,11 +3,30 @@
 纯 JavaScript 黑白棋(Reversi / Othello)AI 引擎:零依赖、无 DOM、浏览器与 Node 通用。
 从 [WebOS](<https://github.com/suulnnka/AetherWebOS>)(纯前端网页操作系统)的黑白棋应用中抽离而来,全部自研。
 
-本分支(`zig`)同时装着两套引擎:下面「引擎」一节讲的 JS 实现,和一份用 Zig 重写的
-原生 u64 位棋盘实现(编译成 wasm,见「Zig 通道」一节)。webos 应用的对弈路径走后者。
+本分支(`zig`)同时装着两套引擎 —— 分工与接口见下一节「两条分支」。
 
 **在线体验:** 打开 <https://suulnnka.github.io/AetherWebOS/> 启动「黑白棋」应用。
 (线上跑的是 JS 通道;Zig/wasm 通道先在本地 `npm run build:wasm` 构建再进 webos 构建。)
+
+## 两条分支:一个接口,两份实现
+
+- `main` —— `src/engine.js`(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解),作为
+  **参照实现 / 历史版本**保留。
+- `zig` —— 在它的基础上多一份 Zig 实现(`src/zig/*` → `wasm/othello.wasm`,原生
+  u64 位棋盘 + 38 张模式表评估);WebOS 黑白棋应用线上跑的是这套。
+
+两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`)与**同一份难度表**
+(`src/levels.js`),所以上层(UI、浏览器探针、对比脚本)换实现不用改代码 ——
+这也是两手准备的意义:同一个局面、同一个档位,两条分支的结果可以直接并排看。
+
+```bash
+node tools/probe-contract.mjs     # 契约冒烟(当前分支):字段/单位/合法性/exact 可信度
+node tools/compare-branches.mjs   # 当前分支 vs 另一条分支,同一批局面并排对比
+```
+
+四个共享文件 —— `src/levels.js`、`docs/WORKER-PROTOCOL.md`、
+`tools/probe-contract.mjs`、`tools/compare-branches.mjs` —— **必须逐字节一致**
+(要改就两边一起改)。`compare-branches.mjs` 开头会先核对这一点,不一致直接判负。
 
 ## 引擎
 

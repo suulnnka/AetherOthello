@@ -11,7 +11,9 @@
   "scripts": {
     "test": "node test/engine-test.mjs",
     "build:wasm": "node tools/build-wasm.mjs",
-    "probe:wasm": "node tools/probe-wasm.mjs"
+    "probe:wasm": "node tools/probe-wasm.mjs",
+    "probe:contract": "node tools/probe-contract.mjs",
+    "compare": "node tools/compare-branches.mjs"
   },
   "license": "MIT",
   "repository": {

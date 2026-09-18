@@ -1,11 +1,16 @@
 /* ============================================================
- * 黑白棋引擎 Worker:zig 通道(othello.wasm)
+ * 黑白棋引擎 Worker —— **zig 通道**(zig 分支,线上跑的就是这套)
  *
- *   ping                    → { type:'pong', tag, orbits, weightBytes, scale }
+ * 消息契约见 docs/WORKER-PROTOCOL.md —— 与 main 分支的 src/worker.js
+ * (JS 参照实现)是**同一份接口**,所以 UI、探针、对比脚本换实现都不用改。
+ * 那边也有同名文件、同样的消息进出,只是背后换成 src/engine.js;两边并排跑用
+ * `node tools/compare-branches.mjs`。
+ *
+ *   ping                    → { type:'pong', tag, engine, orbits, weightBytes, scale }
  *                             (顺带强制加载 wasm:回包里能证明引擎真起来了)
  *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, empties }
  *                           → { id, move, score, depth, depthMax, nodes,
- *                               exact, empties, ms }
+ *                               exact, empties, ms, engine }
  *                             move = -1 表示无合法着法(该跳过回合)
  *
  * 置换表在一个 Worker 的生命周期内**不清**:键里有 Zobrist 校验,跨手复用是安全的,
@@ -15,8 +20,8 @@
  * ── 为什么这版走 wasm 而不是 port 一份 JS ────────────────────
  *   引擎逻辑(u64 位棋盘 + 38 表折叠 + PVS + 置换表 + 残局完全求解)整个在
  *   othello.wasm 里,Worker 只做「拆 lo/hi → 调 → 回填」,所以这边一行规则
- *   都没有,也就不可能和引擎吵架。主分支的 src/engine.js 仍在(探针和基准
- *   用它当参照实现),但**对弈路径不再用它**。
+ *   都没有,也就不可能和引擎吵架。src/engine.js 仍在(探针和基准用它当参照
+ *   实现,compare-branches 也拿它跟这边对打),但**对弈路径不用它**。
  *
  * ── 位板为什么拆 lo/hi 两个 u32 ──────────────────────────────
  *   wasm 的 i64 到 JS 是 BigInt,边界上很容易出错(i64 参数用 Number 传会抛
@@ -72,10 +77,10 @@ self.onmessage = (e) => {
      * 「Worker 没报错」,那是什么都没证明。 */
     boot()
       .then((X) => self.postMessage({
-        type: 'pong', tag: ENGINE_TAG,
+        type: 'pong', tag: ENGINE_TAG, engine: 'wasm',
         orbits: X.engineOrbits(), weightBytes: X.engineWeightBytes(), scale: X.engineScale(),
       }))
-      .catch((err) => self.postMessage({ type: 'pong', tag: ENGINE_TAG, error: String((err && err.message) || err) }));
+      .catch((err) => self.postMessage({ type: 'pong', tag: ENGINE_TAG, engine: 'wasm', error: String((err && err.message) || err) }));
     return;
   }
   if (d.type !== 'think') return;
@@ -101,6 +106,7 @@ self.onmessage = (e) => {
       nodes: X.engineNodesLo() + X.engineNodesHi() * 4294967296,
       empties: d.empties,
       ms,
+      engine: 'wasm',
     });
   }).catch((err) => {
     self.postMessage({ id: d.id, error: String((err && err.message) || err) });
