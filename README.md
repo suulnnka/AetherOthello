@@ -1,7 +1,10 @@
 # AetherOthello
 
 纯 JavaScript 黑白棋(Reversi / Othello)AI 引擎:零依赖、无 DOM、浏览器与 Node 通用。
-从一个类 DSM 的纯前端 WebOS 项目(webos 的 `reversi` 应用)中抽离而来,全部自研。
+从 [WebOS](<https://github.com/suulnnka/AetherWebOS>)(纯前端网页操作系统)的黑白棋应用中抽离而来,全部自研。
+
+**在线体验:** 打开 <https://suulnnka.github.io/AetherWebOS/> 启动「黑白棋」应用 —— 那里面跑的就是本引擎
+(默认高级档:8 层迭代加深 + 残局完全求解,窗口信息行实时显示搜索过程)。
 
 ## 引擎
 
