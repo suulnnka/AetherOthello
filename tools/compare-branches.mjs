@@ -105,7 +105,7 @@ for (const lv of LEVELS_IDX) {
     const agree = na.move === nb.move;
     if (agree) same++;
     total++;
-    const line = (tag, r, extra) => `   ${tag.padEnd(5)} 着法 ${String(r.move).padStart(2)}  评分 ${r.score.toFixed(2).padStart(8)}`
+    const line = (tag, r, extra = '') => `   ${tag.padEnd(5)} 着法 ${String(r.move).padStart(2)}  评分 ${r.score.toFixed(2).padStart(8)}`
       + `  深度 ${String(r.depth).padStart(2)}  节点 ${fmtN(r.nodes).padStart(7)}  ${(r.ms.toFixed(0) + 'ms').padStart(7)}`
       + (r.exact ? '  精确✓' : '') + extra;
     console.log(`${c.name}  [${A.table[lv].name}]`);
