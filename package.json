@@ -14,7 +14,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git@github.com:suulnnka/AetherOthello.git"
+    "url": "https://github.com/suulnnka/AetherOthello.git"
   },
   "keywords": ["othello", "reversi", "engine", "bitboard", "pvs"],
   "private": false
