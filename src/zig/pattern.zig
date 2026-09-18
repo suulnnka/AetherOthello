@@ -34,7 +34,10 @@ pub const PHASES: usize = 2;
 pub const PER_PHASE: u32 = 133_974;
 pub const ORBITS: u32 = 9_475;
 
-/// blob 头:magic / version / phases / orbits / scale(f32),共 16 字节
+/// blob 头 16 字节的真实布局(照 installQuant 的读法,**别照字面猜**):
+///   [0..4)  u32 magic  [4] u8 version  [5] u8 phases  [6..8) 保留
+///   [8..12) u32 orbits [12..16) f32 scale
+/// 注意 version/phases 是**单字节**,不是 u32 —— 按 u32 读会读成 0x00000201=513。
 pub const BLOB_MAGIC: u32 = 0x4F54_484C; // 'OTHL'
 pub const BLOB_HEADER: usize = 16;
 

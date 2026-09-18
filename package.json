@@ -9,7 +9,9 @@
     "./engine": "./src/engine.js"
   },
   "scripts": {
-    "test": "node test/engine-test.mjs"
+    "test": "node test/engine-test.mjs",
+    "build:wasm": "node tools/build-wasm.mjs",
+    "probe:wasm": "node tools/probe-wasm.mjs"
   },
   "license": "MIT",
   "repository": {

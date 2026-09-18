@@ -47,14 +47,17 @@ pub fn build(b: *std.Build) void {
     st_train.dependOn(&run_train.step);
 
     // ── wasm 引擎 ─────────────────────────────────────────────────
-    // ReleaseFast 而不是 ReleaseSmall:多出来的几百字节换来的搜索速度值。
-    // 体积闸门(35 KB gzip)在 webos 侧兜底,真超了再往回退。
+    // ReleaseFast 而不是 ReleaseSmall:多出来的几百字节代码换搜索速度值。
+    // ⚠ `strip = true` 不是可选项:不 strip 的话 DWARF/name 这些 custom section
+    //   会把产物从 ~45 KB 顶到 700+ KB(实测 648% 预算),而它们对运行毫无用处。
+    //   体积闸门(35 KB gzip)在 webos 侧兜底,真超了再往回退。
     const wasm = b.addExecutable(.{
         .name = "othello",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/zig/engine.zig"),
             .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding }),
             .optimize = .ReleaseFast,
+            .strip = true,
         }),
     });
     // freestanding wasm 没有 _start,必须显式关掉入口并打开动态导出,
