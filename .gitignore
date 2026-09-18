@@ -1,3 +1,8 @@
 node_modules/
 *.log
 dist/
+
+# zig 工具链产物(在 zig 分支构建过就会留在本地;主分支不该把它们看成未跟踪文件)
+.zig-cache/
+zig-out/
+out/
