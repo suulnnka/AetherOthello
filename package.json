@@ -1,0 +1,21 @@
+{
+  "name": "aether-othello",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "纯 JS 黑白棋(Reversi/Othello)引擎:位棋盘 + PVS/置换表/残局完全求解,零依赖、无 DOM",
+  "main": "src/engine.js",
+  "exports": {
+    ".": "./src/engine.js",
+    "./engine": "./src/engine.js"
+  },
+  "scripts": {
+    "test": "node test/engine-test.mjs"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:suulnnka/AetherOthello.git"
+  },
+  "keywords": ["othello", "reversi", "engine", "bitboard", "pvs"],
+  "private": false
+}
