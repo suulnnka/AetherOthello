@@ -294,6 +294,32 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
         beta = c.beta;
     }
 
+    // ⑥ MPC:中局节点估值远离窗口时,浅层零窗口验证代替完整搜索。
+    // 失败即回完整搜索,只损失验证成本;σ 偏差方向已由拟合余量兜住。
+    if (mpc_enabled and !exact and depth >= MPC_MIN_DEPTH and mpc_root_depth - depth >= MPC_IGNORE) {
+        const dv: i32 = @intCast(((@as(u32, @bitCast(depth)) >> 2) & 0xFE) ^ (@as(u32, @bitCast(depth)) & 1));
+        const eval0 = pattern.eval(b);
+        const sig = mpc_mpct * mpcSigma(@floatFromInt(64 - b.discs()), @floatFromInt(dv));
+        const err0 = sig;
+        const errS = sig;
+        // 上截:估值 ≥ beta + err0 → 验证 zero-window (beta+errS-ε, beta+errS)
+        if (eval0 >= beta + err0 and beta + errS < 64.0) {
+            const saved = mpc_enabled;
+            mpc_enabled = false;
+            const v = search(b, dv, beta + errS - eps(false), beta + errS, ply, exact);
+            mpc_enabled = saved;
+            if (!aborted and v >= beta + errS) return beta;
+        }
+        // 下截:估值 ≤ alpha - err0 → 验证 (alpha-errS, alpha-errS+ε)
+        if (eval0 <= alpha - err0 and alpha - errS > -64.0) {
+            const saved = mpc_enabled;
+            mpc_enabled = false;
+            const v = search(b, dv, alpha - errS, alpha - errS + eps(false), ply, exact);
+            mpc_enabled = saved;
+            if (!aborted and v <= alpha - errS) return alpha;
+        }
+    }
+
     const moves = &ply_moves[ply];
     const flips = &ply_flips[ply];
     const scores = &ply_scores[ply];
@@ -454,6 +480,25 @@ fn pickTie(order: *const [MAX_MOVES]u32, rv: *const [MAX_MOVES]f32, moves: *cons
     return ties[@intCast(rng_state % n_ties)];
 }
 
+// ── ⑥ MPC(Multi-ProbCut)────────────────────────────────────────────────
+// 思想对齐 Egaroucid probcut.hpp:节点估值落在窗口外足够远时,用一次
+// **浅层零窗口验证搜索**代替完整搜索;误差界 σ 来自本引擎的实测分差
+// (tools/fit-mpc.mjs 采集拟合,零中心标准差 + 12% 安全余量 —— σ 偏大只是
+// 少剪,偏小会剪错,宁大勿小)。σ 模型:σ = c0 + c1·empties + c2·d_verify。
+pub threadlocal var mpc_enabled: bool = false;
+pub threadlocal var mpc_mpct: f32 = 0;
+/// 当前根深度(rootSearch 每轮设置):Egaroucid 的 first_depth - depth ≥ 5
+/// 保证离根太近的节点不做 MPC(根附近的剪枝误差会被整棵树放大)。
+pub threadlocal var mpc_root_depth: i32 = 0;
+const MPC_SIGMA = [4]f32{ 10.029, -0.0984, 0.4454, 0 };
+const MPC_MIN_DEPTH: i32 = 8; // 验证搜索自身也要有点质量
+const MPC_IGNORE: i32 = 2; // 距根过近不剪(Egaroucid 用 5,那是 d20+ 的世界;
+// 我们的档位顶到 d10,IGNORE=5 会让条件区间为空 —— 10-5=5 < MIN_DEPTH 8)
+
+inline fn mpcSigma(empties: f32, d_verify: f32) f32 {
+    return @max(2.0, MPC_SIGMA[0] + MPC_SIGMA[1] * empties + MPC_SIGMA[2] * d_verify);
+}
+
 pub const Result = struct {
     move: i8 = -1,
     score: f32 = 0,
@@ -488,6 +533,7 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
         n += 1;
     }
     ply_cnt[0] = n;
+    mpc_root_depth = depth;
     if (n == 1) {
         return .{ .move = @intCast(moves[0]), .score = 0, .depth = @intCast(depth), .only = true, .exact = exact };
     }

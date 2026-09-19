@@ -198,6 +198,10 @@ self.onmessage = (e) => {
     } else if (typeof X.engineSetSeed === 'function') {
       X.engineSetSeed(0, 0);
     }
+    /* ⑥ MPC:按档位的置信度系数开关(缺省/老回包无 mpc 字段 = 关)。 */
+    if (typeof X.engineSetMpc === 'function') {
+      X.engineSetMpc(lv.mpc ? 1 : 0, Number(lv.mpc) || 0);
+    }
     const t0 = performance.now();
     const mv = X.engineThink(
       d.own[0], d.own[1], d.opp[0], d.opp[1],

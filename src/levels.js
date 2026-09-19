@@ -23,13 +23,16 @@
  *  出局,d10/200 万 = 可用天花板。2026-09 实测(Node/wasm,各局面阶段最差):
  *    d2 ≈0ms · d4 ≈1ms · d6 ≈10ms · d8 ≈30ms · d10/2M ≤472ms
  *  UI 每次启动按本表重建下拉、不落盘,插档不影响存档。 */
+/* mpc = MPC 置信度系数(⑥,0 = 关):估值远离窗口时用浅层验证搜索剪枝。
+ * 1.64 ≈ 95% 单侧置信(Egaroucid MPC_95 同档);σ 模型为自拟合,见
+ * tools/fit-mpc.mjs。只在 ≥8 层的中局节点生效。 */
 export const LEVELS = [
-  { name: '入门', desc: '贪心选点(位置权重 + 翻子数),不搜索', depth: 0, end: 0, budget: 0 },
-  { name: '初级', desc: '中局 ≤2 层 · 不做残局完全求解', depth: 2, end: 0, budget: 20_000 },
-  { name: '中级', desc: '中局 ≤4 层 / ≤20 万节点 · 残局 8 空完全求解', depth: 4, end: 8, budget: 200_000 },
-  { name: '高级', desc: '中局 ≤6 层 / ≤60 万节点 · 残局 10 空完全求解', depth: 6, end: 10, budget: 600_000 },
-  { name: '大师', desc: '中局 ≤8 层 / ≤100 万节点 · 残局 12 空完全求解', depth: 8, end: 12, budget: 1_000_000 },
-  { name: '宗师', desc: '中局 ≤10 层 / ≤200 万节点 · 残局 14 空完全求解', depth: 10, end: 14, budget: 2_000_000 },
+  { name: '入门', desc: '贪心选点(位置权重 + 翻子数),不搜索', depth: 0, end: 0, budget: 0, mpc: 0 },
+  { name: '初级', desc: '中局 ≤2 层 · 不做残局完全求解', depth: 2, end: 0, budget: 20_000, mpc: 0 },
+  { name: '中级', desc: '中局 ≤4 层 / ≤20 万节点 · 残局 8 空完全求解', depth: 4, end: 8, budget: 200_000, mpc: 0 },
+  { name: '高级', desc: '中局 ≤6 层 / ≤60 万节点 · 残局 10 空完全求解', depth: 6, end: 10, budget: 600_000, mpc: 0 },
+  { name: '大师', desc: '中局 ≤8 层(MPC)/ ≤100 万节点 · 残局 12 空完全求解', depth: 8, end: 12, budget: 1_000_000, mpc: 1.64 },
+  { name: '宗师', desc: '中局 ≤10 层(MPC)/ ≤200 万节点 · 残局 14 空完全求解', depth: 10, end: 14, budget: 2_000_000, mpc: 1.64 },
 ];
 
 /** UI 建下拉时的初值。「哪一档算默认体验」是引擎的判断,不是 UI 的 ——

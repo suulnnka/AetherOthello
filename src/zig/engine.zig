@@ -19,6 +19,12 @@ const weights = @embedFile("weights.bin");
 
 var last: search.Result = .{};
 
+/// ⑥ MPC 开关与置信度系数(mpct,典型 1.64 ≈ 95% 单侧)。flag=0 关闭。
+export fn engineSetMpc(flag: u32, mpct: f32) void {
+    search.mpc_enabled = flag != 0;
+    search.mpc_mpct = mpct;
+}
+
 /// ⑪ 根同分随机化种子(lo/hi 拼 u64)。0 = 完全确定(缺省)。
 export fn engineSetSeed(lo: u32, hi: u32) void {
     search.rng_state = @as(u64, lo) | (@as(u64, hi) << 32);
