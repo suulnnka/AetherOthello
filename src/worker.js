@@ -191,6 +191,13 @@ self.onmessage = (e) => {
      * 缺省(undefined / null / NaN)时行为与原来一字不差。 */
     const depthMax = Number.isFinite(d.depth) ? d.depth : lv.depth;
     const bud = Number(lv.budget) || 0;
+    /* `seed` 可选:根同分着法间做可种子化随机(⑪);缺省 0 = 完全确定,
+     * 探针 / e2e / 对打脚本的确定性不受影响。协议文档同步两分支后补记。 */
+    if (Number.isFinite(d.seed) && typeof X.engineSetSeed === 'function') {
+      X.engineSetSeed(d.seed >>> 0, Math.floor(d.seed / 4294967296) >>> 0);
+    } else if (typeof X.engineSetSeed === 'function') {
+      X.engineSetSeed(0, 0);
+    }
     const t0 = performance.now();
     const mv = X.engineThink(
       d.own[0], d.own[1], d.opp[0], d.opp[1],

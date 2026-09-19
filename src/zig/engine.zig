@@ -19,6 +19,10 @@ const weights = @embedFile("weights.bin");
 
 var last: search.Result = .{};
 
+/// ⑪ 根同分随机化种子(lo/hi 拼 u64)。0 = 完全确定(缺省)。
+export fn engineSetSeed(lo: u32, hi: u32) void {
+    search.rng_state = @as(u64, lo) | (@as(u64, hi) << 32);
+}
 /// 0 = 就绪;非 0 = 失败步(见 pattern.failStage 的取值)
 export fn engineInit() u32 {
     if (!pattern.init(weights)) return pattern.failStage;
@@ -68,7 +72,7 @@ export fn engineThink(
 ) i32 {
     if (!pattern.ready) return -1;
     const bud = @as(u64, budgetLo) | (@as(u64, budgetHi) << 32);
-    last = search.think(mk(ownLo, ownHi, oppLo, oppHi), depth, endgame, bud);
+    last = search.thinkSeeded(mk(ownLo, ownHi, oppLo, oppHi), depth, endgame, bud, search.rng_state);
     return if (last.move < 0) -1 else @intCast(last.move);
 }
 

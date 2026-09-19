@@ -425,6 +425,35 @@ pub fn solveExact(b: rules.Board) f32 {
     return search(b, @intCast(64 - b.discs() + 4), -INF, INF, 0, true);
 }
 
+// ── ⑪ 根同分随机化 ──────────────────────────────────────────────────────
+// 0 = 完全确定(探针/对打/测试的确定性不能破);≠0 时根节点**严格同分**的
+// 着法集合内用 xorshift64 挑一个。分数不参与随机 —— 只在值真正相等时生效。
+pub threadlocal var rng_state: u64 = 0;
+
+/// 根着法值容差:非首着走零窗口,fail-soft 返回的是**界**(可能偏离真值
+/// 一个截断量化步),严格等值几乎只剩 1 个成员;按 Egaroucid book 的
+/// accept_value 思想用 1 子容差取"≈最优"集合 —— 只影响开局多样性,
+/// 代价是偶尔放弃 <1 子的微小优势,对人机对弈无感。
+const TIE_TOL: f32 = 1.0;
+
+fn pickTie(order: *const [MAX_MOVES]u32, rv: *const [MAX_MOVES]f32, moves: *const [MAX_MOVES]u6, n: u32, best_move: u6) u6 {
+    if (rng_state == 0) return best_move;
+    const best = rv[order[0]];
+    var ties: [MAX_MOVES]u6 = undefined;
+    var n_ties: u32 = 0;
+    for (0..n) |k| {
+        if (best - rv[order[k]] <= TIE_TOL) {
+            ties[n_ties] = moves[order[k]];
+            n_ties += 1;
+        }
+    }
+    if (n_ties <= 1) return best_move;
+    rng_state ^= rng_state << 13;
+    rng_state ^= rng_state >> 7;
+    rng_state ^= rng_state << 17;
+    return ties[@intCast(rng_state % n_ties)];
+}
+
 pub const Result = struct {
     move: i8 = -1,
     score: f32 = 0,
@@ -525,8 +554,13 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
 /// 迭代加深主入口。node_budget = 0 表示不限;超预算时返回**上一个完整深度**的结果
 /// (半途而废的那轮结果一律丢弃 —— 零窗口搜索被打断时 root_v 是有偏的)。
 pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u64) Result {
+    return thinkSeeded(b, depth_max, endgame_empty, node_budget, 0);
+}
+
+pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u64, seed: u64) Result {
     if (!tt_ready) clearTT();
     stability.ensureInit();
+    rng_state = seed;
     nodes = 0;
     evals = 0;
     aborted = false;
@@ -596,6 +630,7 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
             return last;
         }
         r.endgame = true;
+        if (!aborted) r.move = @intCast(pickTie(&order, &rv, &ply_moves[0], ply_cnt[0], @intCast(r.move)));
         return r;
     }
 
@@ -625,5 +660,6 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
         r.nodes = nodes;
         return r;
     }
+    res.move = @intCast(pickTie(&order, &rv, &ply_moves[0], ply_cnt[0], @intCast(res.move)));
     return res;
 }
