@@ -132,7 +132,9 @@ node tools/probe-exact.mjs       # 残局精确解:与 JS 参照实现逐局面�
 当前权重书使用 **Egaroucid**(作者:Takuto Yamana)公开的训练数据训练:
 [Training Data by Egaroucid 7.4.0 lv.17 & 7.5.1 lv.17](https://www.egaroucid.nyanyan.dev/en/technology/train-data/)
 —— "I used Egaroucid's self-play data for training my Othello AI"。
-该数据**禁止再分发**,因此不进本仓库;要复现训练请自行下载并放 `out/`。
+该数据**禁止再分发**,因此不进本仓库;要复现训练请自行下载并放 `out/`,
+解压后合并成单文件供 `--data` 使用:
+`unzip Egaroucid_Train_Data.zip -d out/ && cat out/<数据目录>/*.txt > out/egaroucid_all.txt`。
 
 ## License
 
