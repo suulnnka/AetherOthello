@@ -41,11 +41,11 @@
    余量给 ⑩ 书(帽 ~8 KB gz)绰绰有余。仍不提前放到更高档 —— 闸门的
    意义是防无意膨胀,要突破 50 KB 时先在文档里说清楚为什么。
 
-### 步骤 0:先记基线(开工前跑一次,数字填回这里)
+### 步骤 0:基线(2026-09-20 已录;`bench.mjs` 测的是 JS 参照实现,zig 通道用 `tools/bench-wasm.mjs`)
 
-- [ ] `node bench/bench.mjs endnodes` 固定种子节点数:____(T1 各项的对照基准)
-- [ ] `node bench/bench.mjs nps` / `micro`:____
-- [ ] 三体积数(raw/gzip/brotli):____
+- [x] `node tools/bench-wasm.mjs endnodes`:空 8..15 共 40 局面合计 **7,816,738 节点 / 1930 ms**
+- [x] `node tools/bench-wasm.mjs moves / nps`:中局 ~2.5-2.7M NPS;moves 签名见 `out/baseline-wasm.txt`
+- [x] 三体积数:**raw 52,690 / gzip 28,427 / brotli 26,036**
 
 ---
 
