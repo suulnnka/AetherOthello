@@ -8,10 +8,15 @@
  *
  *   ping                    → { type:'pong', tag, engine, orbits, weightBytes, scale }
  *                             (顺带强制加载 wasm:回包里能证明引擎真起来了)
+ *   levels                  → { type:'levels', tag, engine, default, levels:[...] }
+ *                             (纯声明本引擎的难度表,**不加载引擎**)
  *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, empties }
  *                           → { id, move, score, depth, depthMax, nodes,
  *                               exact, empties, ms, engine }
  *                             move = -1 表示无合法着法(该跳过回合)
+ *
+ * 难度表住在引擎层(src/levels.js),**两套实现各一份、不要求一致** —— 搜索算法
+ * 不同,同样的 depth/end/budget 在两边根本不是一回事。UI 只问不改,见上面 levels。
  *
  * 置换表在一个 Worker 的生命周期内**不清**:键里有 Zobrist 校验,跨手复用是安全的,
  * 残局里还实打实省时间。所以「清表」不是消息,而是换一个新 Worker(app 侧新对局/
@@ -33,7 +38,7 @@
  *   涨,只有最后的结果行)。要真中断只能 terminate() 再造一个 Worker;
  *   app 侧用请求序号丢弃过期结果即可。
  * ============================================================ */
-import { LEVELS } from './levels.js';
+import { LEVELS, DEFAULT_LEVEL } from './levels.js';
 
 /* ENGINE_TAG 让下游 webos 的体积闸门(tools/check-size.mjs)能在 dist 里认出
  * 这个 chunk(字符串不会被压缩改名)。注意黑白棋是 wasm 通道:闸门会把
@@ -71,6 +76,16 @@ self.onmessage = (e) => {
   const d = e.data;
   if (!d) return;
 
+  if (d.type === 'levels') {
+    /* 故意**不 boot()**:UI 建难度下拉不该被 wasm 取没取到绑住 —— 引擎起不来时
+     * 下拉至少还在,报错交给 ping / think 那条路去报到状态栏。 */
+    self.postMessage({
+      type: 'levels', tag: ENGINE_TAG, engine: 'wasm',
+      default: DEFAULT_LEVEL, levels: LEVELS,
+    });
+    return;
+  }
+
   if (d.type === 'ping') {
     /* ping 也走 boot():回包里带上权重书元信息,于是「Worker 活着」与
      * 「wasm 取到并初始化成功」这两件事一次问清 —— 否则探针只能看到
@@ -86,7 +101,7 @@ self.onmessage = (e) => {
   if (d.type !== 'think') return;
 
   boot().then((X) => {
-    const lv = LEVELS[d.level] ?? LEVELS[0];
+    const lv = LEVELS[d.level] ?? LEVELS[DEFAULT_LEVEL] ?? LEVELS[0];
     const bud = Number(lv.budget) || 0;
     const t0 = performance.now();
     const mv = X.engineThink(

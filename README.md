@@ -15,18 +15,23 @@
 - `zig` —— 在它的基础上多一份 Zig 实现(`src/zig/*` → `wasm/othello.wasm`,原生
   u64 位棋盘 + 38 张模式表评估);WebOS 黑白棋应用线上跑的是这套。
 
-两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`)与**同一份难度表**
-(`src/levels.js`),所以上层(UI、浏览器探针、对比脚本)换实现不用改代码 ——
-这也是两手准备的意义:同一个局面、同一个档位,两条分支的结果可以直接并排看。
+两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`),所以上层(UI、浏览器探针、
+对比脚本)换实现不用改代码 —— 这也是两手准备的意义:同一个局面,两条分支的结果可以
+直接并排看。
+
+**难度表不属于契约**:两套实现连搜索算法都不同,同一个 `depth`/`end`/`budget` 在两边
+根本不是一回事,所以 `src/levels.js` **每个分支各一份、可以各自调**。UI 不 import 它,
+而是发 `{type:'levels'}` 问引擎(回包里的 `default` 就是 UI 下拉的初值)——
+于是「调难度」这件事只需改这个仓库。
 
 ```bash
-node tools/probe-contract.mjs     # 契约冒烟(当前分支):字段/单位/合法性/exact 可信度
-node tools/compare-branches.mjs   # 当前分支 vs 另一条分支,同一批局面并排对比
+node tools/probe-contract.mjs     # 契约冒烟(当前分支):脚本自己向引擎要难度表再核对
+node tools/compare-branches.mjs   # 当前分支 vs 另一条分支,先打两边的表再并排跑
 ```
 
-四个共享文件 —— `src/levels.js`、`docs/WORKER-PROTOCOL.md`、
-`tools/probe-contract.mjs`、`tools/compare-branches.mjs` —— **必须逐字节一致**
-(要改就两边一起改)。`compare-branches.mjs` 开头会先核对这一点,不一致直接判负。
+三个共享文件 —— `docs/WORKER-PROTOCOL.md`、`tools/probe-contract.mjs`、
+`tools/compare-branches.mjs` —— **必须逐字节一致**(要改就两边一起改)。
+`compare-branches.mjs` 开头会先核对这一点,不一致直接判负。
 
 ## 引擎
 
