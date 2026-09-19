@@ -1,0 +1,256 @@
+/* ============================================================
+ * AetherOthello 在线对弈页 —— 布局与组件样式取自 AetherWebOS
+ * (css/base.css 的主题变量 + css/appkit.css 的应用框架 +
+ * css/window.css 的窗体外观),棋盘部分移植自 webos 黑白棋应用。
+ * ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --radius: 10px;
+  --radius-s: 8px;
+  --accent: #5b6cff;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+html[data-theme="light"] {
+  --bg: #eef0f4;
+  --panel: rgba(255, 255, 255, 0.78);
+  --panel-solid: #ffffff;
+  --panel-2: #f5f6f8;
+  --text: #1a2233;
+  --text-2: #66708a;
+  --border: rgba(20, 30, 60, 0.1);
+  --hover: rgba(20, 30, 60, 0.06);
+  --shadow: 0 12px 34px rgba(10, 20, 50, 0.16), 0 2px 8px rgba(10, 20, 50, 0.08);
+  --shadow-2: 0 4px 14px rgba(10, 20, 50, 0.12);
+}
+html[data-theme="dark"] {
+  --bg: #0c111e;
+  --panel: rgba(18, 24, 40, 0.74);
+  --panel-solid: #131a2a;
+  --panel-2: #1a2336;
+  --text: #eef1f8;
+  --text-2: #93a0bd;
+  --border: rgba(255, 255, 255, 0.1);
+  --hover: rgba(255, 255, 255, 0.07);
+  --shadow: 0 14px 40px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+}
+button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 1px; }
+
+/* ============ 桌面:webos 壁纸同族的渐变底 ============ */
+.desktop {
+  height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 22px;
+  background:
+    radial-gradient(130% 100% at 50% 0%, transparent 55%, rgba(0, 0, 0, 0.22)),
+    radial-gradient(120% 90% at 50% 8%, #2b3560, #20264a 55%, #151a35);
+}
+html[data-theme="light"] .desktop {
+  background:
+    radial-gradient(130% 100% at 50% 0%, transparent 55%, rgba(90, 110, 160, 0.18)),
+    radial-gradient(120% 90% at 50% 8%, #dfe6f5, #cdd8ee 55%, #bcc9e6);
+}
+
+/* ============ 窗体(样式对齐 webos 的 .win)============ */
+.win {
+  display: flex; flex-direction: column;
+  width: min(620px, 100%);
+  height: min(640px, 100%);
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: winIn 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes winIn { from { transform: scale(0.94) translateY(14px); opacity: 0; } }
+
+.win-head {
+  flex: none; height: 38px;
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 6px 0 12px;
+  background: linear-gradient(color-mix(in srgb, var(--text) 3%, transparent), transparent);
+  border-bottom: 1px solid var(--border);
+  user-select: none; -webkit-user-select: none;
+}
+.win-head .win-ico {
+  width: 21px; height: 21px; border-radius: 6px;
+  display: grid; place-items: center; flex: none; overflow: hidden;
+}
+.win-head .win-ico svg { width: 100%; height: 100%; display: block; }
+.win-head .win-title {
+  flex: 1; font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wbtn {
+  width: 34px; height: 28px; border-radius: 7px;
+  display: grid; place-items: center;
+  color: var(--text-2); flex: none;
+  transition: background 0.12s, color 0.12s;
+}
+a.wbtn { color: var(--text-2); }
+.wbtn:hover { background: var(--hover); color: var(--text); text-decoration: none; }
+.wbtn svg { width: 15px; height: 15px; }
+
+.win-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.win-body > .app { flex: 1; }
+
+.page-foot {
+  flex: none; font-size: 12px; color: rgba(255, 255, 255, 0.55);
+  user-select: none; -webkit-user-select: none; text-align: center;
+}
+html[data-theme="light"] .page-foot { color: rgba(30, 42, 80, 0.55); }
+.page-foot .sep { margin: 0 8px; }
+.page-foot a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ============ 应用框架(AppKit)============ */
+.app {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-height: 0; flex: 1;
+  font-size: 13.5px;
+  background: var(--panel-solid);
+  user-select: none; -webkit-user-select: none;
+}
+.app-toolbar {
+  flex: none; min-height: 44px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  overflow-x: auto;
+}
+.app-toolbar .grow { flex: 1; }
+.app-body { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; display: grid; place-items: center; }
+.app-status {
+  flex: none; height: 26px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-2); font-size: 12px;
+  background: var(--panel-2);
+}
+.app-status .grow { flex: 1; }
+.app-status .mono { font-family: var(--mono); }
+
+/* ---- 按钮 / 下拉(同 webos .btn / .select)---- */
+.btn {
+  height: 30px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--panel-solid);
+  font-size: 12.5px;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--hover); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 85%, #000); }
+.btn:disabled { opacity: 0.45; pointer-events: none; }
+.btn svg { width: 13px; height: 13px; }
+.select {
+  height: 30px; padding: 0 10px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--panel-solid); color: var(--text);
+  font-size: 12.5px; outline: none;
+}
+.select:focus { border-color: var(--accent); }
+.dim { color: var(--text-2); }
+
+/* ---- 难度下拉(黑白棋应用 .rv-level 同款)---- */
+.rv-level-wrap { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.rv-level { min-width: 84px; cursor: pointer; }
+.rv-level option { background: var(--panel-solid); color: var(--text); }
+
+/* ============ 黑白棋棋盘 ============ */
+/* 固定像素布局,缩放交给外层 .fit-wrap(见 app.js 的 fitBoard) */
+.fit-wrap { flex: none; transform-origin: center center; }
+.rv-board {
+  display: grid; grid-template-columns: repeat(8, 56px); grid-template-rows: repeat(8, 56px);
+  gap: 3px; background: #1c6b3c; padding: 8px; border-radius: 8px;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45), 0 8px 26px rgba(0, 0, 0, 0.35);
+}
+.rv-cell {
+  background: linear-gradient(135deg, #2f9e5f, #237a48);
+  border-radius: 4px; display: grid; place-items: center;
+  position: relative;
+}
+.rv-cell:hover { filter: brightness(1.12); }
+.rv-cell.hint { cursor: pointer; }
+.rv-cell.hint::after {
+  content: ""; position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.65);
+}
+.rv-cell.last::before {
+  content: ""; position: absolute; inset: 2px; border-radius: 4px;
+  border: 2px solid rgba(255, 235, 130, 0.85);
+}
+.rv-piece {
+  width: 42px; height: 42px; border-radius: 50%;
+  animation: rvFlip 0.35s ease;
+}
+.rv-piece.just { box-shadow: 0 0 0 3px rgba(255, 235, 130, 0.7); }
+.rv-piece.b { background: radial-gradient(circle at 35% 30%, #4a4a4a, #111); }
+.rv-piece.w { background: radial-gradient(circle at 35% 30%, #ffffff, #c9c9c9); }
+@keyframes rvFlip { from { transform: rotateY(90deg) scale(0.8); } }
+.rv-hint-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.65); }
+.rv-count {
+  display: inline-grid; place-items: center;
+  min-width: 34px; height: 26px; border-radius: 6px;
+  font-weight: 700; font-size: 14px;
+}
+.rv-count.black { background: #22262e; color: #fff; }
+.rv-count.white { background: #e8e8e8; color: #22262e; }
+
+/* ============ 对话框 / 吐司(webos 系统对话框与通知同族)============ */
+dialog#dlg {
+  border: 0; padding: 0; background: none;
+  max-width: min(360px, calc(100vw - 40px));
+}
+dialog#dlg::backdrop { background: rgba(5, 9, 20, 0.38); backdrop-filter: blur(1.5px); }
+.dlg-card {
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+.dlg-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.dlg-msg { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+.dlg-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+#toasts {
+  position: fixed; right: 14px; bottom: 14px;
+  display: flex; flex-direction: column-reverse; gap: 8px; z-index: 1200;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  width: min(320px, calc(100vw - 28px)); padding: 11px 12px;
+  background: var(--panel);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-2);
+  font-size: 12.5px;
+  animation: toastIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  cursor: pointer;
+}
+@keyframes toastIn { from { transform: translateX(30px); opacity: 0; } }
+.toast.out { transition: all 0.2s; transform: translateX(40px); opacity: 0; }

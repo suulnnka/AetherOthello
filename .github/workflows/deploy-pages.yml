@@ -1,0 +1,49 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# GitHub Pages 部署所需的最小权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只跑一个部署,新推送取消进行中的旧部署
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 站点是仓库根布局:index.html 在根,页面资产在 pages/,
+      # 引擎入口(src/)与 wasm/ 原样拷入 —— 页面里的相对路径
+      # (../src/worker.js、../wasm/othello.wasm)在本地仓库起服与
+      # Pages 上走的是同一套,零改写。
+      - name: 组装站点
+        run: |
+          mkdir -p _site
+          cp index.html .nojekyll _site/
+          cp -r pages _site/pages
+          cp -r src _site/src
+          cp -r wasm _site/wasm
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

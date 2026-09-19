@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="AetherOthello 在线对弈:位棋盘 + PVS/置换表 + 残局完全求解的黑白棋引擎,搜索跑在 Web Worker(zig/wasm)">
+<title>黑白棋 · AetherOthello</title>
+<link rel="stylesheet" href="./pages/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f9e5f'/%3E%3Ccircle cx='12' cy='12' r='6' fill='%23111'/%3E%3Ccircle cx='21' cy='21' r='6' fill='%23fff'/%3E%3C/svg%3E">
+</head>
+<body>
+<main class="desktop">
+  <section class="win" aria-label="黑白棋">
+    <header class="win-head">
+      <span class="win-ico" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#2f9e5f"/><circle cx="12" cy="12" r="6" fill="#111"/><circle cx="21" cy="21" r="6" fill="#fff"/></svg>
+      </span>
+      <span class="win-title" id="winTitle">黑白棋</span>
+      <button class="wbtn" id="themeBtn" title="切换浅色 / 深色主题" aria-label="切换主题"></button>
+      <a class="wbtn" href="https://github.com/suulnnka/AetherOthello" target="_blank" rel="noopener" title="GitHub 仓库" aria-label="GitHub 仓库">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2A10 10 0 0 0 8.84 21.5c.5.08.66-.23.66-.47v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.1.39-1.99 1.03-2.69-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.58 9.58 0 0 1 5 0c1.91-1.3 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.6 1.03 2.69 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.16.58.67.48A10 10 0 0 0 12 2z"/></svg>
+      </a>
+    </header>
+    <div class="win-body" id="app"></div>
+  </section>
+  <footer class="page-foot">
+    <span>AetherOthello — 位棋盘 + PVS/置换表 + 残局完全求解(wasm,跑在 Web Worker)</span>
+    <span class="sep">·</span>
+    <a href="https://suulnnka.github.io/AetherWebOS/" target="_blank" rel="noopener">AetherWebOS 在线演示</a>
+  </footer>
+</main>
+<dialog id="dlg">
+  <div class="dlg-card">
+    <div class="dlg-title" id="dlgTitle"></div>
+    <div class="dlg-msg" id="dlgMsg"></div>
+    <div class="dlg-foot"><button class="btn primary" id="dlgOk">确定</button></div>
+  </div>
+</dialog>
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="./pages/app.js"></script>
+</body>
+</html>
