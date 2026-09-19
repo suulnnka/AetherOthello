@@ -2,9 +2,14 @@
  * 黑白棋引擎 Worker —— **JS 通道**(main 分支,参照实现)
  *
  * 契约见 docs/WORKER-PROTOCOL.md,与 zig 分支的 src/worker.js 完全一致:
- *   收 { type:'think', id, own:[lo,hi], opp:[lo,hi], level, empties }
- *   回 { id, move, score, depth, depthMax, exact, nodes, empties, ms, engine }
+ *   ping                  → { type:'pong', tag, engine }
+ *   levels                → { type:'levels', tag, engine, default, levels:[...] }
+ *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, empties }
+ *                         → { id, move, score, depth, depthMax, exact, nodes,
+ *                             empties, ms, engine }
  * 换实现不换接口 —— UI、探针、对比脚本都不用改。
+ * 难度表由**本分支自己**声明(src/levels.js),两套实现的档位参数不通用,所以
+ * UI 一律发 {type:'levels'} 来问,不 import 那张表。
  *
  * 背后是 src/engine.js(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解)。
  * 与 zig 通道的差异**全在实现层**,接口上等价,共三处值得说明:
@@ -19,7 +24,7 @@
  *      所以 aborted 时 exact 必须报 false(留下的是启发式估值,不是终局判决)。
  * ============================================================ */
 import { think, toBitboard, genMoves, PLO, PHI, OLO, OHI, MLO, MHI } from './engine.js';
-import { LEVELS } from './levels.js';
+import { LEVELS, DEFAULT_LEVEL } from './levels.js';
 
 /* ENGINE_TAG 让下游 webos 的体积闸门(tools/check-size.mjs)能在 dist 里认出
  * 这个 chunk。两条分支用同一个标记:它就是「黑白棋引擎」,实现不同不是标记的事。 */
@@ -51,13 +56,23 @@ self.onmessage = async (e) => {
   const d = e.data;
   if (!d) return;
 
+  if (d.type === 'levels') {
+    /* 纯声明:这条路径不碰引擎(不建置换表、不做任何搜索),所以 UI 建难度下拉
+     * 永远不会因为引擎出问题而空掉 —— 引擎报错是 ping / think 那条路的事。 */
+    self.postMessage({
+      type: 'levels', tag: ENGINE_TAG, engine: 'js',
+      default: DEFAULT_LEVEL, levels: LEVELS,
+    });
+    return;
+  }
+
   if (d.type === 'ping') {
-    self.postMessage({ type: 'pong', tag: ENGINE_TAG, engine: 'js', levels: LEVELS.length });
+    self.postMessage({ type: 'pong', tag: ENGINE_TAG, engine: 'js' });
     return;
   }
   if (d.type !== 'think') return;
 
-  const lv = LEVELS[d.level] ?? LEVELS[0];
+  const lv = LEVELS[d.level] ?? LEVELS[DEFAULT_LEVEL] ?? LEVELS[0];
   const board = toArray(d.own[0], d.own[1], d.opp[0], d.opp[1]);
 
   /* 无合法着法:引擎会直接返回 null(还没有任何进度回调可退回),而契约要求

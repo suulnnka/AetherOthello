@@ -1,26 +1,31 @@
 #!/usr/bin/env node
 /* ============================================================
- * 两条分支并排对比 —— 同一批局面、同一批档位,两个实现各跑一遍,看差异。
+ * 两条分支并排对比 —— 同一批局面、同一批档位下标,两个实现各跑一遍,看差异。
  *
  * 存在意义:仓库里 `main`(JS 参照实现)与 `zig`(Zig + wasm)共用同一份 Worker
  * 契约(docs/WORKER-PROTOCOL.md),所以「换个实现再跑一遍」应该是零成本的 ——
  * 这个脚本就是那条零成本路径,顺便替契约守门:
- *   · 先核对四个共享文件在两条分支上**逐字节一致**(不一致 = 契约已破,直接判负)
+ *   · 先核对三个共享文件在两条分支上**逐字节一致**(不一致 = 契约已破,直接判负)
+ *   · 再各问一次 {type:'levels'},把两边的难度表都打出来 —— 见下
  *   · 再用 tools/probe-contract.mjs 的同一套断言跑两边
  *   · 最后并排打印着法/评分/深度/节点/耗时,同着法与否一眼可见
+ *
+ * ⚠ 难度表**不是共享文件**:两套实现的算法不同,同样的 depth/end/budget 在两边
+ * 不是一回事。所以这里比的是**档位下标**,每行都会标出这一档在各自引擎里叫什么、
+ * 参数是否相同 —— 看到「参数 ≠」就别把两边的评分/耗时当同一件事在比。
  *
  * 当前分支就地跑(不动工作区);另一条分支用 git worktree 拉到临时目录跑。
  *
  * 用法:node tools/compare-branches.mjs [--branch zig] [--levels 1,2] [--keep]
- *      --levels 默认 1,2(中级/高级);大师档(3)在 JS 通道上可能要跑几十秒
+ *      --levels 缺省用当前分支自报的 default
  * 退出码:0 契约两边都过 / 1 有契约失败或共享文件不一致
  * ============================================================ */
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadEngine, runCase, CASES } from './probe-contract.mjs';
+import { fileURLToPath } from 'node:url';
+import { loadEngine, runCase, fetchLevels, CASES } from './probe-contract.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -29,10 +34,11 @@ const git = (args, cwd = ROOT) => execFileSync('git', args, { cwd, encoding: 'ut
 
 const CUR = git(['rev-parse', '--abbrev-ref', 'HEAD']);
 const OTHER = argOf('--branch', CUR === 'zig' ? 'main' : 'zig');
-const LEVELS_IDX = argOf('--levels', '1,2').split(',').map(Number);
+const ASKED = argv.includes('--levels') ? argOf('--levels', '').split(',').map(Number) : null;
 const KEEP = argv.includes('--keep');
 
-const SHARED = ['src/levels.js', 'docs/WORKER-PROTOCOL.md', 'tools/probe-contract.mjs', 'tools/compare-branches.mjs'];
+/* src/levels.js 不在这里:难度表属于引擎层,两条分支各有一份、允许不同 */
+const SHARED = ['docs/WORKER-PROTOCOL.md', 'tools/probe-contract.mjs', 'tools/compare-branches.mjs'];
 
 let fails = 0;
 
@@ -78,24 +84,51 @@ if (OTHER === 'zig' || CUR === 'zig') {
 }
 console.log(`  · 当前分支就地跑 ${ROOT}\n  · 另一分支 worktree ${wt}`);
 
-/* ---------- 2. 各跑一遍 ---------- */
-const tables = {};
+/* ---------- 2. 各问一次难度表 + ping ---------- */
 async function prep(dir) {
-  const { LEVELS } = await import(pathToFileURL(path.join(dir, 'src', 'levels.js')).href);
   const eng = await loadEngine(dir);
   const pong = await eng.ask({ type: 'ping' });
-  return { eng, table: LEVELS, pong };
+  const found = await fetchLevels(eng);
+  if (found.notes.length) { console.log(`  ✗ ${path.basename(dir)} 的 levels 契约有问题:`); for (const n of found.notes) console.log(`      ${n}`); fails++; }
+  return { eng, table: found.table, def: found.def, pong };
 }
 const A = await prep(ROOT);
 const B = await prep(wt);
-tables.A = A; tables.B = B;
-console.log(`  · ${CUR} → engine=${A.pong.engine}   ${OTHER} → engine=${B.pong.engine}\n`);
+console.log(`  · ${CUR} → engine=${A.pong.engine}   ${OTHER} → engine=${B.pong.engine}`);
 
+const fmtLv = (s, i) => {
+  const lv = s.table[i];
+  return lv ? `${s.pong.engine}「${lv.name}」d${lv.depth}/e${lv.end}/${lv.budget}` : `${s.pong.engine}(无第 ${i} 档)`;
+};
+console.log(`\n  难度表(各自声明,不要求一致)`);
+for (const [tag, s] of [[CUR, A], [OTHER, B]]) {
+  console.log(`    ${tag.padEnd(5)} 默认第 ${s.def} 档`);
+  s.table.forEach((lv, i) => console.log(`      [${i}] ${String(lv.name).padEnd(4)} depth ${String(lv.depth).padStart(2)} · end ${String(lv.end).padStart(2)} · budget ${String(lv.budget).padStart(9)}`));
+}
+
+/** 同一档位下标在两边的名字/参数是否等价 —— 不等就明确标出来,免得误比 */
+function lvCompare(i) {
+  const a = A.table[i], b = B.table[i];
+  if (!a || !b) return `档位 ${i} 只有一边有 —— 无法对比`;
+  const same = a.depth === b.depth && a.end === b.end && a.budget === b.budget;
+  const names = a.name === b.name ? `「${a.name}」` : `「${a.name}」vs「${b.name}」`;
+  return `档位 ${i} ${names}${same ? '' : '  ⚠ 参数 ≠'}`;
+}
+
+const LEVELS_IDX = ASKED ?? [A.def];
+
+/* ---------- 3. 各跑一遍 ---------- */
 const fmtN = (n) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
 const rows = [];
 let same = 0, total = 0;
 
 for (const lv of LEVELS_IDX) {
+  console.log(`\n${lvCompare(lv)}`);
+  /* 两边档位数允许不同(各引擎自己定),缺的那一档直接跳过 —— 这不是失败 */
+  if (!A.table[lv] || !B.table[lv]) {
+    console.log(`  · 跳过:这一档只有一边有,没有可比的对象`);
+    continue;
+  }
   for (const c of CASES) {
     const ra = await runCase(A.eng, c, lv, { table: A.table, timeout: 600_000 });
     const rb = await runCase(B.eng, c, lv, { table: B.table, timeout: 600_000 });
@@ -108,17 +141,17 @@ for (const lv of LEVELS_IDX) {
     const line = (tag, r, extra = '') => `   ${tag.padEnd(5)} 着法 ${String(r.move).padStart(2)}  评分 ${r.score.toFixed(2).padStart(8)}`
       + `  深度 ${String(r.depth).padStart(2)}  节点 ${fmtN(r.nodes).padStart(7)}  ${(r.ms.toFixed(0) + 'ms').padStart(7)}`
       + (r.exact ? '  精确✓' : '') + extra;
-    console.log(`${c.name}  [${A.table[lv].name}]`);
+    console.log(`${c.name}`);
     console.log(line(CUR, na));
     console.log(line(OTHER, nb));
     console.log(`        → ${agree ? '同着法 ✓' : `着法不同(见上)`}`
       + `  节点 ${(nb.nodes / Math.max(na.nodes, 1)).toFixed(2)}×  耗时 ${(nb.ms / Math.max(na.ms, 1)).toFixed(2)}×`
       + (ra.want !== null ? `  裁判精确子差 ${ra.want}` : ''));
-    rows.push({ case: c.name, lv: lv, agree, na, nb });
+    rows.push({ case: c.name, lv, agree, na, nb });
   }
 }
 
-/* ---------- 3. 小结 ---------- */
+/* ---------- 4. 小结 ---------- */
 const sum = rows.reduce((acc, r) => ({
   nodes: acc.nodes + r.na.nodes, nodes2: acc.nodes2 + r.nb.nodes,
   ms: acc.ms + r.na.ms, ms2: acc.ms2 + r.nb.ms,
@@ -132,4 +165,3 @@ if (!KEEP && fs.existsSync(path.join(wt, '.git'))) {
   execFileSync('git', ['worktree', 'remove', '--force', wt], { cwd: ROOT, stdio: 'inherit' });
   console.log(`       worktree 已清理(${wt});要留下来复用加 --keep`);
 }
-process.exit(fails ? 1 : 0);

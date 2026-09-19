@@ -14,7 +14,6 @@
 
 改任意一个都要**在两个分支上同样地改**,否则契约就破了:
 
-- `src/levels.js` —— 难度表(name/depth/end/budget)。同一个档位在两边指同一组参数。
 - `docs/WORKER-PROTOCOL.md`(本文)
 - `tools/probe-contract.mjs` —— 契约冒烟:在任一条分支上跑都必须全绿
 - `tools/compare-branches.mjs` —— 把两条分支拉到一起跑同一批局面,输出对比表
@@ -24,9 +23,44 @@
 不属于契约 —— 那正是对比要看的东西。
 
 ```bash
-git diff main zig -- src/levels.js docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/compare-branches.mjs
+git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/compare-branches.mjs
 # 应当没有任何输出
 ```
+
+## 难度表属于**引擎层**,由引擎自报
+
+**两套实现连搜索算法都不同**(JS 是 PVS + 位置权重表,Zig 是 u64 位棋盘上的另一套),
+所以「同一个档位」在两边的实际深度、耗时、棋力根本对不上 —— 硬把 `depth/end/budget`
+做成两边一致的共享文件是**假的统一**,只会造成「表改了但引擎没跟着标定」。
+因此:
+
+- 难度表住在引擎仓库里(`src/levels.js`),**每个分支一份、可以各自调、不要求一致**。
+- UI **不 import 这张表**。启动时发一次 `{ type:'levels' }`,按回包建下拉。
+- 于是「调难度」这件事只需改引擎仓库,不用动 webos。
+
+```js
+{ type: 'levels' }   // 纯声明,不触发引擎加载(见下)
+// → {
+//   type: 'levels', tag, engine,
+//   default: 2,                                   // 建议的默认档位下标
+//   levels: [ { name, desc, depth, end, budget }, ... ],
+// }
+```
+
+- `levels` 数组**至少一项**,下标就是 `think.level` 用的那个下标。
+- `name` / `desc` 是给人看的字符串(UI 直接拿去建 `<option>` / tooltip);
+  `depth`(标称深度上限)/ `end`(进入完全求解的空格阈值)/ `budget`(节点预算,
+  0 = 不限)是引擎参数,UI **只读不改**。
+  UI 只用到其中两个:`end` 用来判断「进了求解区间却没给精确解」,`depth` 在回包没有
+  `depthMax` 时兜底。
+- `default` 由引擎层给:哪一档是「默认体验」是引擎的判断,不是 UI 的。UI 必须把下拉
+  初值显式设成它(否则会出现「界面显示初级、引擎按高级跑」那类不一致)。
+- 这个请求**不加载引擎**(不碰 wasm / 不建置换表),所以 UI 建下拉永远不会因为
+  引擎加载失败而空掉 —— 引擎起不来是 `ping` / `think` 那条路要报的错。
+
+> 换实现之后,**档位下标不能跨实现直接对比棋力**。要横向比,请用
+> `tools/compare-branches.mjs`:它会先把两边的表都打出来(名字/参数都可能不同),
+> 再用同一批局面并排跑 —— 看清楚各自跑的是什么参数,再看着法/耗时/`exact` 分数。
 
 ## 消息契约
 
@@ -37,12 +71,13 @@ git diff main zig -- src/levels.js docs/WORKER-PROTOCOL.md tools/probe-contract.
 
 ```js
 { type: 'ping' }                    // → { type:'pong', tag, engine, ... }
+{ type: 'levels' }                  // → { type:'levels', tag, engine, default, levels }
 {
   type: 'think',
   id,                               // 请求号,原样回传
   own: [lo, hi],                    // 行棋方位板,两个 u32(lo = 第 1–4 行)
   opp: [lo, hi],                    // 对方位板
-  level,                            // LEVELS 的下标
+  level,                            // **本引擎**难度表的下标(见上;跨实现不可比)
   empties,                          // 64 - 双方子数(UI 已经算好,原样回传)
 }
 ```
@@ -52,6 +87,9 @@ git diff main zig -- src/levels.js docs/WORKER-PROTOCOL.md tools/probe-contract.
 (i64 参数用普通 number 传会抛 TypeError,还不报在哪一行);拆开之后全是普通 number,
 只有一处拼装可能出错。
 
+`pong` 里 `tag` / `engine` 是契约字段;其余(`orbits` / `weightBytes` / `scale` 等)
+是**引擎自报的实现元信息**,字段名与个数随实现不同,不进契约 —— 探针只把它们打印出来。
+
 ### 应答
 
 ```js
@@ -60,7 +98,7 @@ git diff main zig -- src/levels.js docs/WORKER-PROTOCOL.md tools/probe-contract.
   move,        // 0..63;−1 = 无合法着法(该跳过回合)
   score,       // 行棋方视角的估值
   depth,       // 这一手实际跑完的深度(0 = 贪心;完全求解时是求解深度)
-  depthMax,    // 档位标称深度(LEVELS[level].depth)
+  depthMax,    // 该档位标称深度(本引擎难度表里 level 那一项的 depth)
   exact,       // score 是否为**精确终局子差**
   nodes,       // 节点数
   empties,     // 原样回传
@@ -86,6 +124,6 @@ git diff main zig -- src/levels.js docs/WORKER-PROTOCOL.md tools/probe-contract.
 ## 验证
 
 ```bash
-node tools/probe-contract.mjs              # 契约冒烟(当前分支)
+node tools/probe-contract.mjs              # 契约冒烟(当前分支);--levels 缺省用引擎的 default
 node tools/compare-branches.mjs            # 当前分支 vs 另一条分支,同一批局面并排看
 ```

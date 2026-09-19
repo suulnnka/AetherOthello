@@ -8,18 +8,24 @@
  *
  * 它检查什么(每条都是对**契约**的,不是对某个实现):
  *   · ping → pong,带 tag(以及实现名 engine)
+ *   · levels → 引擎自报的难度表:至少一项、每项字段齐全、default 在下标范围内
  *   · think 回包字段齐全、类型正确、id 原样回传、empties 原样回传
  *   · move 是合法着法;无合法着法时必须报 −1
- *   · depthMax === LEVELS[level].depth;nodes/ms/depth ≥ 0
+ *   · depthMax === 该引擎难度表里 level 那一项的 depth;nodes/ms/depth ≥ 0
  *   · exact 为真时,score 必须等于**独立重算**的精确终局子差(所以它同时是
  *     一条功能断言:两边的完全求解都得真的精确)
  *   · 用独立的 2D 朴素规则判合法性(不借用任何一方的位棋盘代码)
  *
+ * 难度表**不由本脚本假设**:两套实现的算法不同,档位参数不通用,所以这里一律先问
+ * 引擎({type:'levels'}),再按**它自己报的表**去核对回包。—— 这就是「难度表属于
+ * 引擎层」这条在测试上的落点。
+ *
  * 用法:node tools/probe-contract.mjs [引擎目录=.] [--levels 1,2] [--verbose]
- *      --levels 默认 1(中级):够覆盖搜索 + 残局完全求解,又不至于把 JS 通道拖到分钟级
+ *      --levels 缺省用引擎自报的 default:够覆盖搜索 + 残局完全求解,
+ *      又不至于把 JS 通道拖到分钟级
  * 退出码:0 全过 / 1 有失败
  *
- * 导出:loadEngine(dir) / runSuite(engine, opts) —— tools/compare-branches.mjs 复用
+ * 导出:loadEngine(dir) / runCase(eng, c, level, opts) / CASES —— tools/compare-branches.mjs 复用
  * ============================================================ */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -126,7 +132,6 @@ function solveExact(st, me, memo) {
 
 /* ==================== 局面取样(固定种子,两边跑同一批) ==================== */
 
-const bitOf = (i) => (i < 32 ? { lo: 1 << i, hi: 0 } : { lo: 0, hi: 1 << (i - 32) });
 const pack = (bits) => {
   let lo = 0, hi = 0;
   for (const i of bits) { if (i < 32) lo |= 1 << i; else hi |= 1 << (i - 32); }
@@ -172,8 +177,38 @@ export const CASES = [
 
 const NUM = (x) => typeof x === 'number' && Number.isFinite(x);
 
+/** 向引擎要难度表并按契约校验;返回 { table, def, notes[] }
+ *  这是**唯一**合法的取表方式 —— 不要在测试里 import src/levels.js:
+ *  那张表是引擎的实现细节,两套实现本来就允许不同。 */
+export async function fetchLevels(eng, timeout = 10_000) {
+  const res = await eng.ask({ type: 'levels' }, timeout);
+  const notes = [];
+  if (res.error) notes.push('levels 回包带 error:' + res.error);
+  if (res.type !== 'levels') notes.push(`type 应为 'levels',得到 ${res.type}`);
+  if (res.tag !== 'othello-engine-v1') notes.push(`tag 应为 othello-engine-v1,得到 ${res.tag}`);
+  if (!['js', 'wasm'].includes(res.engine)) notes.push(`engine 应为 js/wasm,得到 ${res.engine}`);
+  const table = res.levels;
+  if (!Array.isArray(table) || !table.length) {
+    notes.push('levels 必须是非空数组');
+    return { table: [], def: 0, notes };
+  }
+  table.forEach((lv, i) => {
+    const at = `levels[${i}]`;
+    if (typeof lv?.name !== 'string' || !lv.name) notes.push(`${at}.name 必须是非空字符串`);
+    if (lv?.desc !== undefined && typeof lv.desc !== 'string') notes.push(`${at}.desc 必须是字符串`);
+    for (const k of ['depth', 'end', 'budget']) {
+      if (!NUM(lv?.[k]) || lv[k] < 0 || !Number.isInteger(lv[k])) notes.push(`${at}.${k} 必须是非负整数,得到 ${lv?.[k]}`);
+    }
+    if (NUM(lv?.end) && lv.end > 64) notes.push(`${at}.end 不能超过 64`);
+    if (NUM(lv?.depth) && NUM(lv?.end) && lv.depth > 0 && lv.end > 64) notes.push(`${at} 参数越界`);
+  });
+  const def = res.default;
+  if (!Number.isInteger(def) || def < 0 || def >= table.length) notes.push(`default 应是 0..${table.length - 1} 的整数,得到 ${def}`);
+  return { table, def: Number.isInteger(def) && def >= 0 && def < table.length ? def : 0, notes };
+}
+
 /** 发一手并按契约检查;返回 { ok, notes[], want, row }
- *  opts.table = 难度表(LEVELS),opts.timeout 毫秒 */
+ *  opts.table = 引擎自报的难度表(由 fetchLevels 得来),opts.timeout 毫秒 */
 export async function runCase(eng, c, level, { table, timeout = 240_000 } = {}) {
   const pos = c.pos;
   const lv = table[level];
@@ -225,21 +260,37 @@ if (isMain) {
   const argv = process.argv.slice(2);
   const dir = argv.find((a) => !a.startsWith('--')) || '.';
   const li = argv.indexOf('--levels');
-  const levels = (li >= 0 ? argv[li + 1] : '1').split(',').map(Number);
+  const asked = li >= 0 ? argv[li + 1].split(',').map(Number) : null;   // null = 用引擎的 default
   const verbose = argv.includes('--verbose');
 
-  const { LEVELS } = await import(pathToFileURL(path.join(path.resolve(dir), 'src', 'levels.js')).href);
   const eng = await loadEngine(dir);
   const pong = await eng.ask({ type: 'ping' });
+  const meta = Object.keys(pong)
+    .filter((k) => !['type', 'tag', 'engine', 'error'].includes(k))
+    .map((k) => `${k}=${typeof pong[k] === 'number' && !Number.isInteger(pong[k]) ? Number(pong[k]).toFixed(6) : pong[k]}`)
+    .join(' ');
   console.log(`\n[契约] 引擎目录 ${eng.root}`);
-  console.log(`  ping → tag=${pong.tag} engine=${pong.engine} ${pong.orbits ? `orbits=${pong.orbits} scale=${Number(pong.scale).toFixed(6)}` : `档位=${pong.levels}`}`);
-  let fails = 0;
-  if (pong.tag !== 'othello-engine-v1') { console.log(`  ✗ tag 应为 othello-engine-v1`); fails++; }
-  if (!['js', 'wasm'].includes(pong.engine)) { console.log(`  ✗ engine 字段应为 js/wasm,得到 ${pong.engine}`); fails++; }
+  console.log(`  ping   → tag=${pong.tag} engine=${pong.engine}${meta ? ' ' + meta : ''}${pong.error ? ' error=' + pong.error : ''}`);
 
+  let fails = 0;
+  if (pong.tag !== 'othello-engine-v1') { console.log(`  ✗ tag 应为 othello-engine-v1,得到 ${pong.tag}`); fails++; }
+  if (!['js', 'wasm'].includes(pong.engine)) { console.log(`  ✗ engine 字段应为 js/wasm,得到 ${pong.engine}`); fails++; }
+  if (pong.error) fails++;
+
+  /* 难度表:问引擎要,不假设 —— 两套实现的档位参数本来就不通用 */
+  const found = await fetchLevels(eng);
+  const LEVELS = found.table;
+  for (const n of found.notes) { console.log(`  ✗ levels 契约:${n}`); fails++; }
+  console.log(`  levels → 引擎自报 ${LEVELS.length} 档,默认第 ${found.def} 档「${LEVELS[found.def]?.name ?? '?'}」`);
+  for (let i = 0; i < LEVELS.length; i++) {
+    const lv = LEVELS[i];
+    console.log(`      [${i}] ${String(lv.name).padEnd(4)} depth ${String(lv.depth).padStart(2)} · end ${String(lv.end).padStart(2)} · budget ${String(lv.budget).padStart(9)}`);
+  }
+
+  const levels = asked ?? [found.def];
   console.log(`\n  用例                      档位   着法  评分      深度  节点      耗时      精确`);
   for (const li2 of levels) {
-    if (!LEVELS[li2]) { console.log(`  ✗ 没有第 ${li2} 档难度`); fails++; continue; }
+    if (!LEVELS[li2]) { console.log(`  ✗ 没有第 ${li2} 档难度(引擎只报了 ${LEVELS.length} 档)`); fails++; continue; }
     for (const c of CASES) {
       const r = await runCase(eng, c, li2, { table: LEVELS, timeout: 240_000 });
       if (!r.ok) fails++;
