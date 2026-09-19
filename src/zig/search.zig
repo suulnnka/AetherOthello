@@ -183,6 +183,24 @@ inline fn eps(exact: bool) f32 {
     return @max(m * 0.25, 1e-4);
 }
 
+/// 潜在行动力:与 x 方棋子 8 邻接的空格数(Egaroucid get_potential_mobility 同式)
+inline fn potentialMob(x: u64, empty: u64) u64 {
+    const h: u64 = x & 0x7E7E_7E7E_7E7E_7E7E;
+    const v: u64 = x & 0x00FF_FFFF_FFFF_FF00;
+    const hv: u64 = x & 0x007E_7E7E_7E7E_7E00;
+    return empty & ((h << 1) | (h >> 1) | (v << 8) | (v >> 8) |
+        (hv << 7) | (hv >> 7) | (hv << 9) | (hv >> 9));
+}
+
+/// 角上着法数(0..4):排序加权用 —— 对方角行动力比普通行动力贵好几倍
+inline fn cornerMob(legal: u64) i32 {
+    var n: i32 = 0;
+    inline for ([_]u6{ 0, 7, 56, 63 }) |k| {
+        if (legal & (@as(u64, 1) << k) != 0) n += 1;
+    }
+    return n;
+}
+
 /// 8 连通膨胀(含源自身),u64 位板版。
 /// 先横后纵即可覆盖四个对角:横扩后的集合再纵移,等价于同时横纵各移一格。
 inline fn expand8(x: u64) u64 {
@@ -293,6 +311,18 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
         // 中局:翻子多优先;残局:翻子**少**优先(少给对手留行动力)
         var s: i32 = W64O[sq] + (if (exact) -fc else fc) * 2;
         if (exact and (par >> sq) & 1 == 1) s += 1000;
+        if (!exact) {
+            // ⑤ 排序补项(Egaroucid move_evaluate 同思想,纯排序不改值):
+            //   落一子看落子后的局面 —— 对方行动力(角邻加权)越少越好,
+            //   己方潜在行动力越多越好、对方越少越好。每候选一次 playMove+moves,
+            //   换 PVS 零窗口试探命中率的提升。
+            const nb = rules.playMove(b, sq, f);
+            const om = rules.moves(.{ .own = nb.opp, .opp = nb.own });
+            s -= (@as(i32, @intCast(@popCount(om))) * 2 + cornerMob(om)) * 8;
+            const emp = nb.empty();
+            s += @as(i32, @intCast(@popCount(potentialMob(nb.own, emp)))) * 8;
+            s -= @as(i32, @intCast(@popCount(potentialMob(nb.opp, emp)))) * 10;
+        }
         scores[n] = s;
         n += 1;
     }
