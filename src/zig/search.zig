@@ -27,8 +27,10 @@ pub const LEVELS = [_]Level{
     .{ .name = "中级", .depth = 4, .end = 8 },
     .{ .name = "高级", .depth = 8, .end = 14 },
 };
-/// 完全求解前先跑的中层迭代加深深度(只为给根着法排序)
-pub const PRE_ENDGAME_DEPTH: u32 = 6;
+/// 完全求解前的中层预搜深度 = ⌈E/2⌉(原固定 6;Egaroucid 的终局预搜到
+/// depth/2 甚至 3/4)。预搜只为根排序 + 提示表喂着法,节点限制在预算的 1/3
+/// 内(PRE_ENDGAME_FRAC),吃不完完全求解的份额,保住 engineExact() 契约。
+pub const PRE_ENDGAME_FRAC: u32 = 3;
 
 pub const F_EXACT: u8 = 1;
 pub const F_LOWER: u8 = 2;
@@ -85,6 +87,39 @@ inline fn slotOf(b: rules.Board, exact: bool) usize {
     h = h *% 0xFF51_AFD7_ED55_8CCD;
     h ^= h >> 29;
     return @intCast((h >> (64 - TT_BITS)) & TT_MASK);
+}
+
+// ── 着法提示表(跨盐)─────────────────────────────────────────────────
+// 残局求解前的中层预搜索写的是不带盐的 TT,求解器(带盐)一个条目都读不到,
+// 只有根排序 order[] 传得过去 —— 求解树内部的首着法只能靠排序猜。
+// 这张小表不存评分语义,只记"这个局面上一轮搜出来的最佳着法",预搜与求解器
+// 都读写;命中靠 own/opp 全比对,过期/撞键最多损失一次提示,不会出错。
+// 界值仍然只信同盐主表。跨手不清:着法信息按局面寻址,永不过期。
+const HINT_BITS = 16;
+const HINT_SIZE = 1 << HINT_BITS;
+const HINT_MASK: u64 = HINT_SIZE - 1;
+
+const Hint = extern struct {
+    own: u64,
+    opp: u64,
+    move: i8,
+    pad: [7]u8 = .{ 0, 0, 0, 0, 0, 0, 0 },
+};
+
+threadlocal var hint: [HINT_SIZE]Hint = undefined;
+
+inline fn hintSlotOf(b: rules.Board) usize {
+    var h = b.own *% 0x2545_F491_4F6C_DD1D;
+    h ^= b.opp *% 0x9E37_79B9_97F4_A7C1;
+    h ^= h >> 31;
+    return @intCast((h >> (64 - HINT_BITS)) & HINT_MASK);
+}
+
+inline fn hintStore(b: rules.Board, mv: u6) void {
+    const h = &hint[hintSlotOf(b)];
+    h.own = b.own;
+    h.opp = b.opp;
+    h.move = @intCast(mv);
 }
 
 /// 排序用位置权重(与主分支 W64 同表,i8 装得下):角贵、角邻负分。
@@ -198,13 +233,21 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
     // 只在 depth > 0 时查表:叶子节点占绝大多数,而叶子的 TT 命中率极低。
     // 定槽只算一次,后面排序提升/写回都复用同一个 slot。
     var slot: usize = 0;
+    var promo: i8 = -1; // TT / 提示表给出的首着法(排序提升用)
     if (depth > 0) {
         slot = slotOf(b, exact);
         const e = &tt[slot];
-        if (e.own == b.own and e.opp == b.opp and e.depth >= depth) {
-            if (e.flag == F_EXACT or (e.flag == F_LOWER and e.score >= beta) or (e.flag == F_UPPER and e.score <= alpha)) {
-                return e.score;
+        if (e.own == b.own and e.opp == b.opp) {
+            if (e.depth >= depth) {
+                if (e.flag == F_EXACT or (e.flag == F_LOWER and e.score >= beta) or (e.flag == F_UPPER and e.score <= alpha)) {
+                    return e.score;
+                }
             }
+            promo = e.move;
+        }
+        if (promo < 0) {
+            const h = &hint[hintSlotOf(b)];
+            if (h.own == b.own and h.opp == b.opp) promo = h.move;
         }
     }
 
@@ -274,30 +317,27 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
         flips[dst] = fl;
     }
 
-    // 置换表最优着法提到队首。**必须连翻子掩码一起搬** ——
+    // 置换表/提示表最优着法提到队首。**必须连翻子掩码一起搬** ——
     // 漏搬会让队首着法配到别人的翻子掩码,make 出非法局面(值全错,且很难查)。
-    if (depth > 0) {
-        const e = &tt[slot];
-        if (e.own == b.own and e.opp == b.opp and e.move >= 0) {
-            const want: u6 = @intCast(e.move);
-            var k: u32 = 0;
-            while (k < n) : (k += 1) {
-                if (moves[k] != want) continue;
-                if (k == 0) break;
-                const mv = moves[k];
-                const sc = scores[k];
-                const fl = flips[k];
-                var j = k;
-                while (j > 0) : (j -= 1) {
-                    moves[j] = moves[j - 1];
-                    scores[j] = scores[j - 1];
-                    flips[j] = flips[j - 1];
-                }
-                moves[0] = mv;
-                scores[0] = sc;
-                flips[0] = fl;
-                break;
+    if (promo >= 0) {
+        const want: u6 = @intCast(promo);
+        var k: u32 = 0;
+        while (k < n) : (k += 1) {
+            if (moves[k] != want) continue;
+            if (k == 0) break;
+            const mv = moves[k];
+            const sc = scores[k];
+            const fl = flips[k];
+            var j = k;
+            while (j > 0) : (j -= 1) {
+                moves[j] = moves[j - 1];
+                scores[j] = scores[j - 1];
+                flips[j] = flips[j - 1];
             }
+            moves[0] = mv;
+            scores[0] = sc;
+            flips[0] = fl;
+            break;
         }
     }
 
@@ -334,6 +374,7 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
         e.depth = @intCast(depth);
         e.flag = if (best >= beta) F_LOWER else if (best > alpha0) F_EXACT else F_UPPER;
         e.move = @intCast(best_move);
+        hintStore(b, best_move);
     }
     return best;
 }
@@ -484,12 +525,17 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
     if (empties <= endgame_empty) {
         // 残局:先前置中层迭代加深定根排序,再完全求解
         var d: u32 = 2;
-        const pre = @min(@min(PRE_ENDGAME_DEPTH, depth_max), empties);
+        const pre = @min(@min((empties + 1) / 2, depth_max), empties);
+        // 预搜限吃预算的 1/3:预算被预搜耗尽时,完全求解还留得下大头,
+        // engineExact() 不会因为"预搜炫技"而丢掉精确性。
+        const saved_limit = node_limit;
+        if (node_budget != 0) node_limit = @min(node_limit, nodes + node_budget / PRE_ENDGAME_FRAC);
         var last: Result = .{};
         while (d <= pre) : (d += 2) {
             last = rootSearch(b, @intCast(d), false, &order, &rv) catch break;
             if (aborted or last.only) break;
         }
+        node_limit = saved_limit;
         if (last.only) {
             // 唯一着法不是"免求解通行证":残局里唯一着法很常见(随机局面 ~5%),
             // 直接返回会带着 score=0 且不带 endgame/exact 标记 ⇒ engineExact()
