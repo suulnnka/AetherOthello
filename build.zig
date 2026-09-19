@@ -81,9 +81,18 @@ pub fn build(b: *std.Build) void {
             .optimize = .ReleaseFast,
         }),
     });
+    const unit3 = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/zig/stability.zig"),
+            .target = target,
+            .optimize = .ReleaseFast,
+        }),
+    });
     const run_unit = b.addRunArtifact(unit);
     const run_unit2 = b.addRunArtifact(unit2);
+    const run_unit3 = b.addRunArtifact(unit3);
     const test_step = b.step("test", "规则与折叠的单元测试");
     test_step.dependOn(&run_unit.step);
     test_step.dependOn(&run_unit2.step);
+    test_step.dependOn(&run_unit3.step);
 }

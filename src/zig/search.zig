@@ -15,6 +15,7 @@
 const std = @import("std");
 const rules = @import("rules.zig");
 const pattern = @import("pattern.zig");
+const stability = @import("stability.zig");
 
 pub const INF: f32 = 1e30;
 
@@ -176,7 +177,7 @@ fn parityMask(empty: u64) u64 {
 /// PVS 负极大。返回**行棋方视角**的分值。
 /// exact = true 时:depth ≤ 0 不调用启发式评估,而是给终局点差的兜底值 ——
 /// 因为完全求解只接受精确点差,掺一点启发式进去整棵树的胜负判断就废了。
-fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact: bool) f32 {
+fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bool) f32 {
     nodes += 1;
     if (node_limit != 0 and nodes > node_limit) {
         aborted = true;
@@ -184,6 +185,7 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact:
     }
 
     var alpha = alpha_in;
+    var beta = beta_in;
     // 只在 depth > 0 时查表:叶子节点占绝大多数,而叶子的 TT 命中率极低。
     // 定槽只算一次,后面排序提升/写回都复用同一个 slot。
     var slot: usize = 0;
@@ -211,6 +213,15 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact:
         const sw = rules.Board{ .own = b.opp, .opp = b.own };
         if (rules.moves(sw) == 0) return terminalScore(b);
         return -search(sw, depth, -beta, -alpha, ply + 1, exact);
+    }
+
+    // 稳定子剪枝(仅完全求解:剪枝界是**子差**意义的,中局启发式分不适用)。
+    // 窗口足够高时才算稳定性;算出的界要么直接判值,要么收紧 [alpha,beta]。
+    if (exact) {
+        const c = stability.cut(b, alpha, beta);
+        if (c.value) |v| return v;
+        alpha = c.alpha;
+        beta = c.beta;
     }
 
     const moves = &ply_moves[ply];
@@ -322,6 +333,7 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact:
 /// 虚着不消耗深度,所以虽然加了余量,搜索也一定会走到终局。
 pub fn solveExact(b: rules.Board) f32 {
     if (!tt_ready) clearTT();
+    stability.ensureInit();
     nodes = 0;
     evals = 0;
     aborted = false;
@@ -430,6 +442,7 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
 /// (半途而废的那轮结果一律丢弃 —— 零窗口搜索被打断时 root_v 是有偏的)。
 pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u64) Result {
     if (!tt_ready) clearTT();
+    stability.ensureInit();
     nodes = 0;
     evals = 0;
     aborted = false;
