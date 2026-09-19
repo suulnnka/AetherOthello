@@ -481,6 +481,19 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
             if (aborted or last.only) break;
         }
         if (last.only) {
+            // 唯一着法不是"免求解通行证":残局里唯一着法很常见(随机局面 ~5%),
+            // 直接返回会带着 score=0 且不带 endgame/exact 标记 ⇒ engineExact()
+            // 假报 0、UI 显示凭空的和棋分。落子后递归一次完全求解,把真值补上。
+            // ⚠ 不能用 solveExact:它会清掉 node_limit 无限制地解 —— 那就破坏了
+            //   "预算截断时 engineExact() 必须为 0"的契约。内联调 search,预算
+            //   耗尽时 aborted 置位,engineExact() 照旧报 0。
+            // (训练标签不受影响:playGame 对 only 的分数本来就不采信。)
+            if (!aborted) {
+                const nb = rules.play(b, @intCast(last.move));
+                last.score = -search(nb, @intCast(64 - nb.discs() + 4), -INF, INF, 0, true);
+                last.exact = true;
+                last.endgame = true;
+            }
             last.nodes = nodes;
             return last;
         }

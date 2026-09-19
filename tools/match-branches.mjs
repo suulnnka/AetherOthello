@@ -13,7 +13,10 @@
  * 最后这条正是「契约一致」换来的能力:没有同一份接口,这两套实现没法同台。
  *
  * 用法:node tools/match-branches.mjs [--branch legacy_js] [--pairs 60] [--open 6]
- *        [--depth 6|none] [--levels A:B] [--seed 1] [--keep] [--quiet]
+ *        [--depth 6|none] [--levels A:B] [--seed 1] [--keep] [--quiet] [--dir <path>]
+ *      --dir    直接对打一个**引擎目录**(须含 src/worker.js、src/levels.js、
+ *               wasm/othello.wasm),不走分支/worktree —— 比较任意实验构建
+ *               (比如不同相位数的两本权重书)用这个;当前仓库就地跑当 A 方。
  *      --depth  对弈深度,**默认 6 层、两边一致** —— 跨实现比棋力必须把深度钉住,
  *               否则比的是"一边 d10 一边 d8"。传 none 退回各用各的档位。
  *      --levels 是 (当前分支档位):(另一分支档位);缺省用各自自报的 default。
@@ -36,7 +39,9 @@ const has = (n) => argv.includes(n);
 const git = (args, cwd = ROOT) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
 const CUR = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-const OTHER = argOf('--branch', CUR === 'legacy_js' ? 'main' : 'legacy_js');
+/* --dir:对打任意引擎目录(实验构建),替代 --branch 的 worktree 机制 */
+const DIR_ARG = has('--dir') ? argOf('--dir', '') : null;
+const OTHER = DIR_ARG ? path.basename(path.resolve(DIR_ARG)) : argOf('--branch', CUR === 'legacy_js' ? 'main' : 'legacy_js');
 const PAIRS = Number(argOf('--pairs', 60));
 const OPEN = Number(argOf('--open', 6));
 const SEED = Number(argOf('--seed', 1));
@@ -150,18 +155,28 @@ function ensureFiles(dir, key) {
 }
 
 console.log(`\n[对打] ${CUR}  vs  ${OTHER}`);
-const wt = path.join(os.tmpdir(), `othello-wt-${OTHER}`);
-if (!fs.existsSync(path.join(wt, '.git'))) {
-  fs.rmSync(wt, { recursive: true, force: true });
-  execFileSync('git', ['worktree', 'add', '--force', wt, OTHER], { cwd: ROOT, stdio: 'inherit' });
+let wt;
+if (DIR_ARG) {
+  /* --dir:B 方就是这个目录(自带 worker + wasm 的实验构建),没有 worktree 可言 */
+  wt = path.resolve(DIR_ARG);
+  if (!fs.existsSync(path.join(wt, 'src', 'worker.js'))) {
+    throw new Error(`--dir 目录缺 src/worker.js:${wt}`);
+  }
+  ensureFiles(wt, ['src/worker.js', 'src/levels.js']);
 } else {
-  execFileSync('git', ['checkout', '--force', OTHER], { cwd: wt, stdio: 'inherit' });
+  wt = path.join(os.tmpdir(), `othello-wt-${OTHER}`);
+  if (!fs.existsSync(path.join(wt, '.git'))) {
+    fs.rmSync(wt, { recursive: true, force: true });
+    execFileSync('git', ['worktree', 'add', '--force', wt, OTHER], { cwd: ROOT, stdio: 'inherit' });
+  } else {
+    execFileSync('git', ['checkout', '--force', OTHER], { cwd: wt, stdio: 'inherit' });
+  }
+  ensureFiles(wt, ['src/worker.js', 'src/levels.js', 'src/engine.js']);
 }
-ensureFiles(wt, ['src/worker.js', 'src/levels.js', 'src/engine.js']);
-if (OTHER === 'main' || CUR === 'main') {
-  const wasmDir = OTHER === 'main' ? wt : ROOT;
+if (DIR_ARG || OTHER === 'main' || CUR === 'main') {
+  const wasmDir = (OTHER === 'main' || DIR_ARG) ? wt : ROOT;
   if (!fs.existsSync(path.join(wasmDir, 'wasm', 'othello.wasm'))) {
-    throw new Error(`main(wasm 通道)缺 ${path.join(wasmDir, 'wasm', 'othello.wasm')} —— 先在引擎仓跑 node tools/build-wasm.mjs`);
+    throw new Error(`${DIR_ARG ? '--dir 目录' : 'main(wasm 通道)'}缺 ${path.join(wasmDir, 'wasm', 'othello.wasm')} —— 先跑 node tools/build-wasm.mjs`);
   }
 }
 
