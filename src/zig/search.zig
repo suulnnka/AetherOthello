@@ -460,7 +460,8 @@ pub threadlocal var rng_state: u64 = 0;
 /// 一个截断量化步),严格等值几乎只剩 1 个成员;按 Egaroucid book 的
 /// accept_value 思想用 1 子容差取"≈最优"集合 —— 只影响开局多样性,
 /// 代价是偶尔放弃 <1 子的微小优势,对人机对弈无感。
-const TIE_TOL: f32 = 1.0;
+/// genbook 生成开局主线时放宽到 3(主线库要多样性,不要同一主线刷屏)。
+pub var tie_tol: f32 = 1.0;
 
 fn pickTie(order: *const [MAX_MOVES]u32, rv: *const [MAX_MOVES]f32, moves: *const [MAX_MOVES]u6, n: u32, best_move: u6) u6 {
     if (rng_state == 0) return best_move;
@@ -468,7 +469,7 @@ fn pickTie(order: *const [MAX_MOVES]u32, rv: *const [MAX_MOVES]f32, moves: *cons
     var ties: [MAX_MOVES]u6 = undefined;
     var n_ties: u32 = 0;
     for (0..n) |k| {
-        if (best - rv[order[k]] <= TIE_TOL) {
+        if (best - rv[order[k]] <= tie_tol) {
             ties[n_ties] = moves[order[k]];
             n_ties += 1;
         }

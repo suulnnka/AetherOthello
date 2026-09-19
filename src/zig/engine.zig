@@ -17,6 +17,86 @@ const search = @import("search.zig");
 /// 所以它就是体积预算里那块"躲不掉的" —— 别指望靠压缩省它。
 const weights = @embedFile("weights.bin");
 
+// ── ⑩ 迷你开局书:着法主线 →「局面 → 可行着法集」查找表 ────────────────
+// book.bin 由 `zig build genbook` 自对弈生成(400 条主线 × 12 手,6 bit/手),
+// 只含引擎自己下出来的着法 —— 无外部数据。init 时回放展开成开放寻址表,
+// think 命中则直接出着法(跳过搜索):开局阶段零延迟、着法多样、不呆板。
+const book_bin = @embedFile("book.bin");
+const BOOK_PLY = 12;
+const BK_CAP = 8192; // 2 的幂;≤400×12 = 4800 项,负载 <60%
+const BK_MASK: u64 = BK_CAP - 1;
+var bk_key_own: [BK_CAP]u64 = undefined;
+var bk_key_opp: [BK_CAP]u64 = undefined;
+var bk_next: [BK_CAP]u64 = undefined; // 可行着法位掩码;0 = 空槽
+var bk_ready = false;
+
+fn bookHash(own: u64, opp: u64) usize {
+    var h = own *% 0x9E37_79B9_7F4A_7C15;
+    h ^= opp *% 0xC2B2_AE3D_27D4_EB4F;
+    h ^= h >> 29;
+    return @intCast(h & BK_MASK);
+}
+
+fn bookInsert(b: rules.Board, mv: u6) void {
+    var s = bookHash(b.own, b.opp);
+    while (true) {
+        if (bk_next[s] == 0) {
+            bk_key_own[s] = b.own;
+            bk_key_opp[s] = b.opp;
+        }
+        if (bk_key_own[s] == b.own and bk_key_opp[s] == b.opp) {
+            bk_next[s] |= @as(u64, 1) << mv;
+            return;
+        }
+        s = @intCast((s + 1) & BK_MASK);
+    }
+}
+
+fn bookInit() void {
+    const n: usize = book_bin[0] | (@as(usize, book_bin[1]) << 8);
+    var i: usize = 0;
+    while (i < n) : (i += 1) {
+        const off = 2 + i * 9;
+        var v: u72 = 0;
+        var by: usize = 0;
+        while (by < 9) : (by += 1) v = (v << 8) | book_bin[off + by];
+        var b = rules.Board.initial;
+        var k: usize = 0;
+        while (k < BOOK_PLY) : (k += 1) {
+            const mv: u6 = @intCast((v >> @intCast(66 - 6 * k)) & 0x3F);
+            bookInsert(b, mv);
+            b = rules.play(b, mv);
+        }
+    }
+    bk_ready = true;
+}
+
+/// 命中开局书则返回着法。depth_max ≥ 4 才用(入门/初级保持原味);
+/// rng_state ≠ 0 时在书内着法里随机(⑪ 的种子),否则取最低位(确定)。
+fn bookMove(b: rules.Board, depth_max: u32) ?u6 {
+    if (!bk_ready or depth_max < 4) return null;
+    if (b.discs() > 4 + 2 * BOOK_PLY) return null;
+    var s = bookHash(b.own, b.opp);
+    while (true) {
+        if (bk_next[s] == 0) return null;
+        if (bk_key_own[s] == b.own and bk_key_opp[s] == b.opp) break;
+        s = @intCast((s + 1) & BK_MASK);
+    }
+    var m = bk_next[s] & rules.moves(b);
+    if (m == 0) return null;
+    if (search.rng_state != 0) {
+        const cnt: u64 = @popCount(m);
+        var pick = search.rng_state % cnt;
+        while (m != 0) {
+            const low: u6 = @intCast(@ctz(m));
+            if (pick == 0) return low;
+            m &= m - 1;
+            pick -= 1;
+        }
+    }
+    return @intCast(@ctz(m));
+}
+
 var last: search.Result = .{};
 
 /// ⑥ MPC 开关与置信度系数(mpct,典型 1.64 ≈ 95% 单侧)。flag=0 关闭。
@@ -32,6 +112,7 @@ export fn engineSetSeed(lo: u32, hi: u32) void {
 /// 0 = 就绪;非 0 = 失败步(见 pattern.failStage 的取值)
 export fn engineInit() u32 {
     if (!pattern.init(weights)) return pattern.failStage;
+    bookInit();
     return 0;
 }
 
@@ -78,6 +159,11 @@ export fn engineThink(
 ) i32 {
     if (!pattern.ready) return -1;
     const bud = @as(u64, budgetLo) | (@as(u64, budgetHi) << 32);
+    // ⑩ 开局书命中:直接出着法,不搜索(score=0,exact/endgame 均 false)
+    if (bookMove(mk(ownLo, ownHi, oppLo, oppHi), depth)) |mv| {
+        last = .{ .move = @intCast(mv), .score = 0, .depth = 0 };
+        return mv;
+    }
     last = search.thinkSeeded(mk(ownLo, ownHi, oppLo, oppHi), depth, endgame, bud, search.rng_state);
     return if (last.move < 0) -1 else @intCast(last.move);
 }

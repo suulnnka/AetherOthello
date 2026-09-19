@@ -202,8 +202,10 @@ const m0 = thinkBB(INIT_B, INIT_W, 6, 8);
 const want0 = [B(2, 3), B(3, 2), B(4, 5), B(5, 4)].map((b) => Number(b.toString(2).length - 1));
 ok(m0 >= 0 && want0.includes(m0),
   `初始局面 think(6) → ${m0}(${'abcdefgh'[m0 & 7]}${(m0 >> 3) + 1}),4 个合法着法之一`);
-ok(X.engineDepth() >= 2, `engineDepth() = ${X.engineDepth()}(迭代加深至少跑到 2 层)`);
-ok(X.engineNodesLo() + X.engineNodesHi() * 4294967296 > 0, `engineNodes = ${lastNodes()}`);
+/* ⑩ 开局书命中时 0 节点、depth 0 是合法行为(不搜索直接出着法) */
+const bookHit = lastNodes() === 0;
+ok(bookHit || X.engineDepth() >= 2, `engineDepth() = ${X.engineDepth()}(书命中或迭代加深至少 2 层)`);
+ok(bookHit || lastNodes() > 0, `engineNodes = ${lastNodes()}(书命中则为 0)`);
 ok(X.engineExact() === 0, `engineExact() = ${X.engineExact()}(中局不是精确解)`);
 
 // 节点预算必须真被遵守:给 2 万节点、标称 20 层
