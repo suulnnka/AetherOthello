@@ -9,11 +9,10 @@
 (线上跑的就是 wasm 通道;`wasm/othello.wasm` 是入库产物,改引擎或权重后
 本地重跑 `npm run build:wasm` 再提交。)
 
-## 在线对弈页(GitHub Pages)
+## 在线对弈页(GitHub Pages,免 CI)
 
 本仓库自带一个**开箱即玩的对弈页**:布局与交互取自 WebOS 的黑白棋应用,
-同一份 Worker 契约接的也是本仓库的引擎 —— wasm 通道(zig → othello.wasm)。每次推送由 GitHub Actions
-自动部署(`.github/workflows/deploy-pages.yml`):
+同一份 Worker 契约接的也是本仓库的引擎 —— wasm 通道(zig → othello.wasm)。**没有构建、没有 CI**:站点即仓库本身,GitHub Pages 原样引用仓库文件直接出页面:
 
 **<https://suulnnka.github.io/AetherOthello/>**
 
@@ -25,6 +24,10 @@ wasm 在 `wasm/`,全部按相对路径引用 —— 本地预览无需构建,仓
 python3 -m http.server 8000     # 仓库根起服
 # 打开 http://localhost:8000/
 ```
+
+线上开启只需一次:仓库 **Settings → Pages → Build and deployment → Source 选
+「Deploy from a branch」,Branch 选默认分支 + `/(root)`**;此后每次推送自动更新,
+不走任何 Actions。
 
 功能与 WebOS 应用一致:新对局 / 难度(引擎自报表)/ 人机或双人 / 换边 / 悔棋
 (提示点标合法落点,残局自动完全求解并给出精确子差),底栏左侧行棋状态、右侧实时引擎搜索信息。
