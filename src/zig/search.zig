@@ -425,8 +425,16 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
 
     // 初级:纯贪心(位置权重 + 翻子数),不搜索
     if (depth_max == 0) {
+        // order / rv **必须先清零**。rootSearch 判断"是不是首轮"的方式是
+        // 看 order 里有没有非 0 —— 传进去的是栈垃圾时它会误判成"已经排过序",
+        // 于是跳过排序、直接拿垃圾值当 moves 的下标:
+        //   · 轻则返回一个非法着法(实测 58 子/6 空局面返回过 63,合法着法是 0,1,10,40,56,57)
+        //   · 重则 `root_v[idx] = v` 越界写全局缓冲
+        // depth>0 那条路一直是清零的,只有这一处漏了。**别把这里的两行删掉**。
         var order: [MAX_MOVES]u32 = undefined;
         var rv: [MAX_MOVES]f32 = undefined;
+        for (&order) |*x| x.* = 0;
+        for (&rv) |*x| x.* = 0;
         var r = rootSearch(b, 0, false, &order, &rv) catch return .{};
         r.nodes = nodes;
         return r;

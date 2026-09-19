@@ -38,7 +38,7 @@ const ASKED = argv.includes('--levels') ? argOf('--levels', '').split(',').map(N
 const KEEP = argv.includes('--keep');
 
 /* src/levels.js 不在这里:难度表属于引擎层,两条分支各有一份、允许不同 */
-const SHARED = ['docs/WORKER-PROTOCOL.md', 'tools/probe-contract.mjs', 'tools/compare-branches.mjs'];
+const SHARED = ['docs/WORKER-PROTOCOL.md', 'tools/probe-contract.mjs', 'tools/compare-branches.mjs', 'tools/match-branches.mjs'];
 
 let fails = 0;
 

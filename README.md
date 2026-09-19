@@ -26,12 +26,17 @@
 
 ```bash
 node tools/probe-contract.mjs     # 契约冒烟(当前分支):脚本自己向引擎要难度表再核对
-node tools/compare-branches.mjs   # 当前分支 vs 另一条分支,先打两边的表再并排跑
+node tools/compare-branches.mjs   # 当前分支 vs 另一条分支,先打两边的表再并排跑单步
+node tools/match-branches.mjs     # 让两条分支**互相下整局** —— 棋力只有对打能回答
 ```
 
-三个共享文件 —— `docs/WORKER-PROTOCOL.md`、`tools/probe-contract.mjs`、
-`tools/compare-branches.mjs` —— **必须逐字节一致**(要改就两边一起改)。
-`compare-branches.mjs` 开头会先核对这一点,不一致直接判负。
+四个共享文件 —— `docs/WORKER-PROTOCOL.md`、`tools/probe-contract.mjs`、
+`tools/compare-branches.mjs`、`tools/match-branches.mjs` —— **必须逐字节一致**
+(要改就两边一起改)。`compare-branches.mjs` 开头会先核对这一点,不一致直接判负。
+
+`match-branches.mjs` 用配对开局(同一局面下两盘、交换执子方)消除先手优势,
+`--levels A:B` 分别指定两边档位(缺省用各自自报的 `default`)。**参数不同的档位
+之间对打只能回答"开箱谁强",不能当纯实现对比** —— 脚本会把两边的参数并排列出来。
 
 ## 引擎
 

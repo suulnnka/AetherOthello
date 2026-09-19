@@ -287,7 +287,11 @@ if (isMain) {
     console.log(`      [${i}] ${String(lv.name).padEnd(4)} depth ${String(lv.depth).padStart(2)} · end ${String(lv.end).padStart(2)} · budget ${String(lv.budget).padStart(9)}`);
   }
 
-  const levels = asked ?? [found.def];
+  /* 缺省跑:引擎的 default **加上第 0 档**。第 0 档(最便宜那档,通常是"不搜索"的
+   * 贪心)走的是**另一条代码路径**,高深度那几档永远覆盖不到它 —— zig 通道就因此在
+   * 初级档漏过一次"未初始化 order 数组 → 返回非法着法"的 bug,直到对打脚本
+   * (tools/match-branches.mjs)才暴露出来。第 0 档最便宜,白扫一遍不亏。 */
+  const levels = asked ?? [...new Set([found.def, 0])].filter((i) => LEVELS[i]).sort((a, b) => a - b);
   console.log(`\n  用例                      档位   着法  评分      深度  节点      耗时      精确`);
   for (const li2 of levels) {
     if (!LEVELS[li2]) { console.log(`  ✗ 没有第 ${li2} 档难度(引擎只报了 ${LEVELS.length} 档)`); fails++; continue; }
