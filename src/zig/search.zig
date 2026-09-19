@@ -398,12 +398,16 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
 
     if (depth > 0 and !aborted) {
         const e = &tt[slot];
-        e.own = b.own;
-        e.opp = b.opp;
-        e.score = best;
-        e.depth = @intCast(depth);
-        e.flag = if (best >= beta) F_LOWER else if (best > alpha0) F_EXACT else F_UPPER;
-        e.move = @intCast(best_move);
+        // ⑦ 留深替换:同槽撞上**同局面**的更深记录时不覆盖(浅结果对深节点
+        // 没用,还顶掉了能直接命中的深条目);异局面照常覆盖
+        if (!(e.own == b.own and e.opp == b.opp and e.depth > depth)) {
+            e.own = b.own;
+            e.opp = b.opp;
+            e.score = best;
+            e.depth = @intCast(depth);
+            e.flag = if (best >= beta) F_LOWER else if (best > alpha0) F_EXACT else F_UPPER;
+            e.move = @intCast(best_move);
+        }
         hintStore(b, best_move);
     }
     return best;
