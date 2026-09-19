@@ -10,10 +10,24 @@
  *                             (顺带强制加载 wasm:回包里能证明引擎真起来了)
  *   levels                  → { type:'levels', tag, engine, default, levels:[...] }
  *                             (纯声明本引擎的难度表,**不加载引擎**)
- *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, empties }
+ *   { type:'state', id, own:[lo,hi], opp:[lo,hi] }
+ *                           → { type:'state', id, moves, flips, oppHasMoves,
+ *                               ownCount, oppCount, empties, over, reason, winner }
+ *                             规则查询的单一入口:行棋方的全部合法落点与各自翻转的
+ *                             己方子(flips 与 moves 平行)、对方有无棋、双方子数、
+ *                             空格数、终局(满盘/双方无棋)与胜者(相对方)。
+ *                             跳过回合由调用方推得:moves 空且 over=false → 查对方
+ *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, depth?, empties }
  *                           → { id, move, score, depth, depthMax, nodes,
  *                               exact, empties, ms, engine }
  *                             move = -1 表示无合法着法(该跳过回合)
+ *                             depth 可选:覆盖该档位的深度上限 —— 标定与跨实现
+ *                             对打要"同深度比棋力"时用,缺省完全不变
+ *
+ * state 的实现在本文件里是一段**轻量 JS 位板遍历**(逐空格 8 方向扫描):
+ * wasm 当前没有 legal 导出、本机又没有 zig 工具链可重编 —— 落子合法性、翻转子
+ * 与胜负判定是规则,必须住在引擎仓库,所以放 worker.js 而不是 UI;等 zig 工具链
+ * 可用,可以下沉为 wasm 的 engineLegal/engineState 导出,消息契约不变。
  *
  * 难度表住在引擎层(src/levels.js),**两套实现各一份、不要求一致** —— 搜索算法
  * 不同,同样的 depth/end/budget 在两边根本不是一回事。UI 只问不改,见上面 levels。
@@ -51,6 +65,68 @@ self.__engineTag = ENGINE_TAG;
  * 仓库绑死在打包器上。 */
 const WASM_URL = new URL('../wasm/othello.wasm', import.meta.url);
 
+/* ---- 局面规则(JS 位板,wasm 无 legal 导出期的过渡实现)----
+ * bit = row*8+col,row0 = 最上一行,lo 装 bit0..31、hi 装 bit32..63 —— 与 think
+ * 的位板编码一致。每个空格沿 8 方向扫描:连续的对方子之后必须接一枚己方子。
+ * 这些全是黑白棋的规则事实(合法性 / 翻子 / 数子 / 终局 / 胜者),UI 不复判。 */
+const STATE_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+const bitAt = (lo, hi, i) => (i < 32 ? (lo >>> i) & 1 : (hi >>> (i - 32)) & 1);
+const pop32 = (x) => {
+  x = x - ((x >>> 1) & 0x55555555);
+  x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+  x = (x + (x >>> 4)) & 0x0f0f0f0f;
+  return (x * 0x01010101) >>> 24;
+};
+
+function legalWithFlips(ownLo, ownHi, oppLo, oppHi) {
+  const moves = [], flips = [];
+  for (let cell = 0; cell < 64; cell++) {
+    if (bitAt(ownLo, ownHi, cell) || bitAt(oppLo, oppHi, cell)) continue;
+    const r0 = cell >> 3, c0 = cell & 7;
+    const here = [];
+    for (const [dr, dc] of STATE_DIRS) {
+      let r = r0 + dr, c = c0 + dc;
+      const line = [];
+      while (r >= 0 && r < 8 && c >= 0 && c < 8 && bitAt(oppLo, oppHi, r * 8 + c)) {
+        line.push(r * 8 + c);
+        r += dr; c += dc;
+      }
+      if (line.length && r >= 0 && r < 8 && c >= 0 && c < 8 && bitAt(ownLo, ownHi, r * 8 + c)) {
+        here.push(...line);
+      }
+    }
+    if (here.length) { moves.push(cell); flips.push(here); }
+  }
+  return { moves, flips };
+}
+
+/** state 回包的规则事实(own/opp 是相对方;winner 也用 'own'/'opp' 表达,
+ *  由调用方按自己查询时的行棋方映射回黑/白):
+ *   - moves/flips:行棋方全部合法落点与各自翻子
+ *   - oppHasMoves:对方是否有棋(仅当前方无棋 → 跳过回合;双方都无 → 终局)
+ *   - ownCount/oppCount/empties:双方子数与空格数(empties 即 think 的参数)
+ *   - over/reason/winner:满盘('full')或双方无棋('no-moves')终局;子多者胜 */
+function describeState(ownLo, ownHi, oppLo, oppHi) {
+  const mine = legalWithFlips(ownLo, ownHi, oppLo, oppHi);
+  const theirs = legalWithFlips(oppLo, oppHi, ownLo, ownHi);
+  const ownCount = pop32(ownLo) + pop32(ownHi);
+  const oppCount = pop32(oppLo) + pop32(oppHi);
+  const empties = 64 - ownCount - oppCount;
+  const over = mine.moves.length === 0 && theirs.moves.length === 0;
+  let reason = null, winner = null;
+  if (over) {
+    reason = empties === 0 ? 'full' : 'no-moves';
+    winner = ownCount > oppCount ? 'own' : ownCount < oppCount ? 'opp' : null;   // null = 和棋
+  }
+  return {
+    moves: mine.moves,
+    flips: mine.flips,
+    oppHasMoves: theirs.moves.length > 0,
+    ownCount, oppCount, empties,
+    over, reason, winner,
+  };
+}
+
 let booting = null;
 
 /** 懒加载 + 只实例化一次。引擎内部是全局状态,本来就是「一个 Worker 一个引擎」。 */
@@ -86,6 +162,13 @@ self.onmessage = (e) => {
     return;
   }
 
+  if (d.type === 'state') {
+    /* 规则查询,不依赖 wasm:纯位板遍历,见文件头说明 */
+    const s = describeState(d.own[0], d.own[1], d.opp[0], d.opp[1]);
+    self.postMessage({ type: 'state', id: d.id, tag: ENGINE_TAG, ...s });
+    return;
+  }
+
   if (d.type === 'ping') {
     /* ping 也走 boot():回包里带上权重书元信息,于是「Worker 活着」与
      * 「wasm 取到并初始化成功」这两件事一次问清 —— 否则探针只能看到
@@ -102,11 +185,16 @@ self.onmessage = (e) => {
 
   boot().then((X) => {
     const lv = LEVELS[d.level] ?? LEVELS[DEFAULT_LEVEL] ?? LEVELS[0];
+    /* `depth` 是**可选覆盖**:只替换该档位的深度上限,end / budget 照旧取档位。
+     * 给标定与跨实现对打用 —— 两边难度表本来就不同(zig 默认 d10、main 默认 d8),
+     * 想"同深度比棋力"就必须能从外面把深度钉住,否则比的是两套参数而不是两种实现。
+     * 缺省(undefined / null / NaN)时行为与原来一字不差。 */
+    const depthMax = Number.isFinite(d.depth) ? d.depth : lv.depth;
     const bud = Number(lv.budget) || 0;
     const t0 = performance.now();
     const mv = X.engineThink(
       d.own[0], d.own[1], d.opp[0], d.opp[1],
-      lv.depth, lv.end,
+      depthMax, lv.end,
       bud >>> 0, Math.floor(bud / 4294967296) >>> 0,
     );
     const ms = performance.now() - t0;
@@ -115,7 +203,7 @@ self.onmessage = (e) => {
       move: mv,
       score: X.engineScore(),
       depth: X.engineDepth(),
-      depthMax: lv.depth,
+      depthMax,
       exact: X.engineExact() === 1,
       // 引擎的节点计数是 u64,emscripten 那套 BigInt 返回值这里用不上 —— 拆两半拼
       nodes: X.engineNodesLo() + X.engineNodesHi() * 4294967296,

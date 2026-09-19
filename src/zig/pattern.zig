@@ -34,12 +34,18 @@ pub const PHASES: usize = 2;
 pub const PER_PHASE: u32 = 133_974;
 pub const ORBITS: u32 = 9_475;
 
-/// blob 头 16 字节的真实布局(照 installQuant 的读法,**别照字面猜**):
+/// blob 头 20 字节的真实布局(照 installQuant 的读法,**别照字面猜**):
 ///   [0..4)  u32 magic  [4] u8 version  [5] u8 phases  [6..8) 保留
-///   [8..12) u32 orbits [12..16) f32 scale
+///   [8..12) u32 orbits [12..16) f32 scale(相位0) [16..20) f32 scale(相位1)
 /// 注意 version/phases 是**单字节**,不是 u32 —— 按 u32 读会读成 0x00000201=513。
+///
+/// ⚠ **version 2 起每相位一个 scale**(头从 16 字节涨到 20)。两个相位的权重幅值
+///   能差一倍,共用一个全局 scale 时,幅值小的那个相位白丢一半分辨率;而 int8 的
+///   量程是按各相位自己的 max 定的,拆开是纯粹的收益。
+///   version 1 的书(v1,头 16 字节)等价于"两相位填同一个 scale",可无损迁移。
+pub const BLOB_VERSION: u8 = 2;
 pub const BLOB_MAGIC: u32 = 0x4F54_484C; // 'OTHL'
-pub const BLOB_HEADER: usize = 16;
+pub const BLOB_HEADER: usize = 20;
 
 const POW3 = [9]u32{ 1, 3, 9, 27, 81, 243, 729, 2187, 6561 };
 
@@ -233,8 +239,9 @@ pub var sigma: [PER_PHASE]i8 = undefined;
 /// 已折入符号的查表:wt[阶段][槽] = sigma · 权重。
 /// 于是求值退化成 38 次查表 + 求和,不需要在热路径上乘符号。
 pub var wt: [PHASES][PER_PHASE]i8 = undefined;
-/// 全局定标:int8 加权和 → 子数
-pub var scale: f32 = 1.0;
+/// 定标:int8 加权和 → 子数。**每相位一个** —— 两相位幅值常差一倍,
+/// 共用一个 scale 会让幅值小的那个相位白丢一半分辨率。
+pub var scales: [PHASES]f32 = .{1.0} ** PHASES;
 pub var ready: bool = false;
 /// init 失败在第几步(排障用;0 = 未失败)。返回 bool 而不是 error 是为了
 /// 让调用方在 wasm 里也能拿到一个可以读的数字。
@@ -279,7 +286,7 @@ pub fn init(blob: []const u8) bool {
         failStage = 2;
         return false;
     }
-    if (blob[4] != 1) { // version
+    if (blob[4] != BLOB_VERSION) { // version
         failStage = 3;
         return false;
     }
@@ -291,7 +298,7 @@ pub fn init(blob: []const u8) bool {
         failStage = 5;
         return false;
     }
-    scale = readF32(blob, 12);
+    for (0..PHASES) |ph| scales[ph] = readF32(blob, 12 + 4 * ph);
 
     // ① 每槽求"最小像"、符号、是否被对称性逼成 0
     @memset(&zflag, 0);
@@ -331,7 +338,7 @@ pub fn init(blob: []const u8) bool {
     }
 
     // ④ 摊平成"符号已折入"的查表
-    installQuant(blob[BLOB_HEADER..], scale);
+    installQuant(blob[BLOB_HEADER..], scales);
     if (failStage != 0) return false;
     ready = true;
     return true;
@@ -342,8 +349,8 @@ pub fn init(blob: []const u8) bool {
 /// 没必要为了换权重重走一遍 blob 解析;更重要的是这样能保证
 /// "训练时搜索用的表" 与 "部署时 init 出的表" 逐字节同源(不会各写一份实现而漂移)。
 /// 参数是 u8 而不是 i8:blob 是字节流,让调用方 @ptrCast 会碰对齐问题,不值当。
-pub fn installQuant(q: []const u8, sc: f32) void {
-    scale = sc;
+pub fn installQuant(q: []const u8, sc: [PHASES]f32) void {
+    scales = sc;
     for (0..PHASES) |ph| {
         const base = ph * ORBITS;
         for (0..PER_PHASE) |i| {
@@ -384,10 +391,11 @@ pub fn slotIndices(b: rules.Board, out: *[PTN_COUNT]u32) void {
 pub fn eval(b: rules.Board) f32 {
     var s: [PTN_COUNT]u32 = undefined;
     slotIndices(b, &s);
-    const tab = &wt[phaseOf(b.discs())];
+    const ph = phaseOf(b.discs());
+    const tab = &wt[ph];
     var sum: i32 = 0;
     inline for (0..PTN_COUNT) |i| sum += tab[s[i]];
-    return @as(f32, @floatFromInt(sum)) * scale;
+    return @as(f32, @floatFromInt(sum)) * scales[ph];
 }
 
 /// 未乘 scale 的**整数**加权和。对拍专用:整数能逐位比较,浮点不能
@@ -401,10 +409,20 @@ pub fn evalInt(b: rules.Board) i32 {
     return sum;
 }
 
-/// 浮点(未量化)权重下同一套折叠规则的评估,训练器用来算预测值。
-/// 与量化版共用 orbit/sigma 表,所以"训练目标"和"实际落盘后跑出来的值"
-/// 只差一个 int8 舍入,不会出现两套折叠口径。
-pub fn evalFloat(b: rules.Board, u: [PHASES][ORBITS]f32) f32 {
+/// 浮点(未量化)权重下同一套折叠规则的评估 —— **训练自对弈的叶子求值入口**
+/// (`search.eval_u` 非 null 时走这里)。
+/// 与量化版共用 orbit/sigma 表,所以"自对弈看到的分值"和"落盘后跑出来的值"
+/// 只差一次 int8 舍入,不会出现两套折叠口径。
+///
+/// ⚠ 收**指针**而不是值:`[PHASES][ORBITS]f32` 是 75,800 字节,按值传会在
+///   **每个叶子节点**上复制一遍 —— 一趟 38 个槽的乘加省下的,一次复制全赔回去。
+///
+/// ⚠ 与 `installQuant` 的一处不对称:那边会把 `orb_zero` 的轨道强制写成 0,
+///   这里**不检查** `orb_zero`(每个叶子省 38 次判断)。所以调用方必须保证
+///   传进来的表在 `orb_zero` 轨道上确实是 0 —— 否则 f32 求值和 int8 求值会
+///   悄悄分叉,而且是"只在若干局面下差一点"的那种,极难定位。
+///   train.zig 每轮拟合后都会清一遍,是唯一的写入方。
+pub fn evalFloat(b: rules.Board, u: *const [PHASES][ORBITS]f32) f32 {
     var s: [PTN_COUNT]u32 = undefined;
     slotIndices(b, &s);
     const ph = phaseOf(b.discs());
@@ -418,9 +436,10 @@ pub fn evalFloat(b: rules.Board, u: [PHASES][ORBITS]f32) f32 {
 
 /// 让 38 张表的查表结果直接相加 —— 求和顺序固定,便于与 JS 侧逐位对拍
 pub fn evalSlots(s: *const [PTN_COUNT]u32, discs: u32) f32 {
-    const tab = &wt[phaseOf(discs)];
+    const ph = phaseOf(discs);
+    const tab = &wt[ph];
     var sum: i32 = 0;
     inline for (0..PTN_COUNT) |i| sum += tab[s[i]];
-    return @as(f32, @floatFromInt(sum)) * scale;
+    return @as(f32, @floatFromInt(sum)) * scales[ph];
 }
 

@@ -34,9 +34,11 @@ export fn engineOrbits() u32 {
 export fn engineWeightBytes() u32 {
     return @intCast(weights.len);
 }
-/// 全局定标:eval = scale × Σ int8。应用侧要显示"子数"时乘它。
+/// 定标:eval = scale × Σ int8。应用侧要显示"子数"时乘它。
+/// ⚠ 每相位一个 scale(v2 起);这个导出是 `pong` 里的**诊断字段**,只报相位 0。
+///   严格换算要按子数选相位 —— 但没有任何应用逻辑依赖它。
 export fn engineScale() f32 {
-    return pattern.scale;
+    return pattern.scales[0];
 }
 
 inline fn mk(ownLo: u32, ownHi: u32, oppLo: u32, oppHi: u32) rules.Board {

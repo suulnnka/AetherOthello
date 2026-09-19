@@ -465,7 +465,7 @@ fn searchBench(arena: std.mem.Allocator, blobPath: []const u8, depth: u32, count
         say("✗ pattern.init 失败(步 {d})", .{pattern.failStage});
         std.process.exit(1);
     }
-    say("中局搜索体检 · 深度 {d} · 权重 {s}(scale {d:.6})", .{ depth, blobPath, pattern.scale });
+    say("中局搜索体检 · 深度 {d} · 权重 {s}(scale {d:.6} / {d:.6})", .{ depth, blobPath, pattern.scales[0], pattern.scales[1] });
 
     var prng = std.Random.DefaultPrng.init(0x5EA5_C4ED);
     const rnd = prng.random();

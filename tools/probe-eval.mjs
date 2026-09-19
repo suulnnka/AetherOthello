@@ -23,7 +23,7 @@ const foldDir = process.argv[4] || 'out';
 
 const ORBITS = Number(process.argv[5] || 9475);
 const PHASES = 2;
-const HEADER = 16;
+const HEADER = 20; // version 2:头 20 字节(每相位一个 f32 scale)
 const MAGIC = 0x4f54484c; // 'OTHL'
 
 const blob = fs.readFileSync(blobPath);
@@ -32,11 +32,11 @@ if (blob.length !== HEADER + PHASES * ORBITS) {
   process.exit(1);
 }
 if (blob.readUInt32LE(0) !== MAGIC) { console.log('✗ magic 不对'); process.exit(1); }
-if (blob[4] !== 1) { console.log('✗ version 不对'); process.exit(1); }
+if (blob[4] !== 2) { console.log('✗ version 不对(要 v2:每相位一个 scale,头 20 字节)'); process.exit(1); }
 if (blob[5] !== PHASES) { console.log('✗ phases 不对'); process.exit(1); }
 if (blob.readUInt32LE(8) !== ORBITS) { console.log('✗ orbits 不对'); process.exit(1); }
-const scale = blob.readFloatLE(12);
-console.log(`权重书 ${blobPath}:${blob.length} 字节 · ${PHASES} 相位 × ${ORBITS} 轨道 · scale ${scale}`);
+const scales = [blob.readFloatLE(12), blob.readFloatLE(16)];
+console.log(`权重书 ${blobPath}:${blob.length} 字节 · ${PHASES} 相位 × ${ORBITS} 轨道 · scale ${scales[0]} / ${scales[1]}`);
 
 // ── 折叠表(Zig 用的「代表升序编号」口径;oracle-fold.mjs 落的那三张)──
 const orbitBuf = fs.readFileSync(`${foldDir}/orbcanon.u16`);
@@ -106,7 +106,7 @@ for (const line of lines) {
   n++;
 }
 
-console.log(`  相位 0 样本 ${bothPhases[0]} · 相位 1 样本 ${bothPhases[1]} · |加权和| 最大 ${maxAbs}(≈ ${(maxAbs * scale).toFixed(2)} 子)`);
+console.log(`  相位 0 样本 ${bothPhases[0]} · 相位 1 样本 ${bothPhases[1]} · |加权和| 最大 ${maxAbs}(≈ ${(maxAbs * Math.max(scales[0], scales[1])).toFixed(2)} 子)`);
 console.log(bad === 0
   ? `✓ ${n} 个局面的槽号与整数加权和全部一致(求值链路:blob → 折叠表 → 38 张查表)`
   : `✗ ${bad} 处不一致 / 共 ${n} 行`);

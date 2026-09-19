@@ -13,10 +13,13 @@
  * 最后这条正是「契约一致」换来的能力:没有同一份接口,这两套实现没法同台。
  *
  * 用法:node tools/match-branches.mjs [--branch zig] [--pairs 60] [--open 6]
- *        [--levels A:B] [--seed 1] [--keep] [--quiet]
+ *        [--depth 6|none] [--levels A:B] [--seed 1] [--keep] [--quiet]
+ *      --depth  对弈深度,**默认 6 层、两边一致** —— 跨实现比棋力必须把深度钉住,
+ *               否则比的是"一边 d10 一边 d8"。传 none 退回各用各的档位。
  *      --levels 是 (当前分支档位):(另一分支档位);缺省用各自自报的 default。
+ *               `--depth` 只替换深度上限,end / budget 仍取档位。
  *      ⚠ 两边档位**参数可能不同**(各引擎自己定),所以报告里会把参数并排打出来:
- *        参数相同 ✓ = 纯实现对比;参数不同 = 开箱体验对比,别混着解释。
+ *        depth 已钉住 + 其余参数相同 = 纯实现对比;否则只能当开箱体验看。
  * 退出码:0 跑完 / 1 有契约问题(非法着法、回包缺字段)
  * ============================================================ */
 import fs from 'node:fs';
@@ -38,6 +41,11 @@ const PAIRS = Number(argOf('--pairs', 60));
 const OPEN = Number(argOf('--open', 6));
 const SEED = Number(argOf('--seed', 1));
 const LEVELS_ARG = has('--levels') ? argOf('--levels', '') : null;
+/* 对弈深度:**默认 6 层、两边一致**。跨实现对打必须把深度钉住 ——
+ * 否则比的是 zig 默认档的 d10 和 main 默认档的 d8,出来的差值分不清
+ * 是"实现差"还是"参数差"。传 `--depth none` 退回"各用各的档位"(开箱体验对比)。 */
+const DEPTH_ARG = argOf('--depth', '6');
+const DEPTH = DEPTH_ARG === 'none' ? null : Number(DEPTH_ARG);
 const KEEP = has('--keep');
 const QUIET = has('--quiet');
 
@@ -110,7 +118,8 @@ async function playGame(st0, me0, sideA, A, lvA, B, lvB, faults) {
     const res = await eng.ask({
       type: 'think', id: ++seq,
       own: packOf(st, me), opp: packOf(st, 3 - me),
-      level, empties: 64 - countOf(st, 1) - countOf(st, 2),
+      level, depth: DEPTH ?? undefined,
+      empties: 64 - countOf(st, 1) - countOf(st, 2),
     });
     if (res.error) { faults.push(`${tag} 回包 error:${res.error}`); return null; }
 
@@ -174,11 +183,20 @@ const [lvA, lvB] = LEVELS_ARG
 const fmtLv = (s, i, lv) => (lv ? `${s.pong.engine} 档位 ${i}「${lv.name}」d${lv.depth}/e${lv.end}/${lv.budget}` : `${s.pong.engine} 无档位 ${i}`);
 const la = pick(A, lvA), lb = pick(B, lvB);
 if (!la || !lb) throw new Error(`档位不存在:${fmtLv(A, lvA, la)} · ${fmtLv(B, lvB, lb)}`);
-const sameParams = la.depth === lb.depth && la.end === lb.end && la.budget === lb.budget;
+/* 深度被 --depth 钉住时,"两边参数是否相同"就只需再看 end/budget ——
+ * 拿档位表里的 depth 去比会得出"参数不同"的假结论,而实际跑的深度是同一个。 */
+const sameRest = la.end === lb.end && la.budget === lb.budget;
+const sameParams = DEPTH != null ? sameRest : (la.depth === lb.depth && sameRest);
 
 console.log(`  · ${CUR} → engine=${A.pong.engine}   ${OTHER} → engine=${B.pong.engine}`);
 console.log(`  档位  A) ${fmtLv(A, lvA, la)}`);
-console.log(`        B) ${fmtLv(B, lvB, lb)}   ${sameParams ? '→ 参数相同 ✓(纯实现对比)' : '→ ⚠ 参数不同(这是"各自默认体验"的对比)'}`);
+console.log(`        B) ${fmtLv(B, lvB, lb)}`);
+if (DEPTH == null) {
+  console.log(`  深度  各用各的档位 ⇒ ${sameParams ? '参数相同 ✓(纯实现对比)' : '⚠ 参数不同(这是"各自默认体验"的对比)'}`);
+} else {
+  console.log(`  深度  **两边都钉在 d${DEPTH}**(只覆盖搜索深度上限)` +
+    (sameRest ? ' · end/budget 也相同 ✓ ⇒ 纯实现对比' : ' · ⚠ end/budget 仍不同(取各自档位)'));
+}
 console.log(`  开局  ${OPEN} 手随机 · ${PAIRS} 个配对开局(每个下两盘、交换执子方 = ${PAIRS * 2} 盘)`);
 console.log(`  ⚠ 两个引擎各用一个 Worker 跑完全程(置换表跨局不清)—— 两边同样处理,不影响对比\n`);
 

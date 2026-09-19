@@ -11,7 +11,9 @@
  *   · levels → 引擎自报的难度表:至少一项、每项字段齐全、default 在下标范围内
  *   · think 回包字段齐全、类型正确、id 原样回传、empties 原样回传
  *   · move 是合法着法;无合法着法时必须报 −1
- *   · depthMax === 该引擎难度表里 level 那一项的 depth;nodes/ms/depth ≥ 0
+ *   · depthMax === 难度表里 level 那一项的 depth(请求带 depth 覆盖时等于覆盖值);
+ *     nodes/ms/depth ≥ 0
+ *   · think 的 `depth` 覆盖只替换深度上限,end/budget 仍取档位(CLI 有专用用例)
  *   · exact 为真时,score 必须等于**独立重算**的精确终局子差(所以它同时是
  *     一条功能断言:两边的完全求解都得真的精确)
  *   · 用独立的 2D 朴素规则判合法性(不借用任何一方的位棋盘代码)
@@ -209,10 +211,11 @@ export async function fetchLevels(eng, timeout = 10_000) {
 
 /** 发一手并按契约检查;返回 { ok, notes[], want, row }
  *  opts.table = 引擎自报的难度表(由 fetchLevels 得来),opts.timeout 毫秒 */
-export async function runCase(eng, c, level, { table, timeout = 240_000 } = {}) {
+export async function runCase(eng, c, level, { table, timeout = 240_000, depth = null } = {}) {
   const pos = c.pos;
   const lv = table[level];
-  const req = { type: 'think', id: 1, own: pos.own, opp: pos.opp, level, empties: pos.empties };
+  const req = { type: 'think', id: 1, own: pos.own, opp: pos.opp, level,
+                depth: depth ?? undefined, empties: pos.empties };
   const res = await eng.ask(req, timeout);
   const notes = [];
   const bad = (s) => notes.push(s);
@@ -222,7 +225,8 @@ export async function runCase(eng, c, level, { table, timeout = 240_000 } = {}) 
   if (!NUM(res.move) || res.move < -1 || res.move > 63 || !Number.isInteger(res.move)) bad(`move 非法:${res.move}`);
   if (!NUM(res.score)) bad(`score 不是数字:${res.score}`);
   if (!NUM(res.depth) || res.depth < 0) bad(`depth 非法:${res.depth}`);
-  if (res.depthMax !== lv.depth) bad(`depthMax 应为 ${lv.depth},得到 ${res.depthMax}`);
+  const wantMax = depth ?? lv.depth;   // depth 覆盖档位上限时,回包必须反映覆盖值
+  if (res.depthMax !== wantMax) bad(`depthMax 应为 ${wantMax},得到 ${res.depthMax}`);
   if (typeof res.exact !== 'boolean') bad(`exact 不是布尔:${res.exact}`);
   if (!NUM(res.nodes) || res.nodes < 0) bad(`nodes 非法:${res.nodes}`);
   if (!NUM(res.ms) || res.ms < 0) bad(`ms 非法:${res.ms}`);
@@ -292,6 +296,59 @@ if (isMain) {
    * 初级档漏过一次"未初始化 order 数组 → 返回非法着法"的 bug,直到对打脚本
    * (tools/match-branches.mjs)才暴露出来。第 0 档最便宜,白扫一遍不亏。 */
   const levels = asked ?? [...new Set([found.def, 0])].filter((i) => LEVELS[i]).sort((a, b) => a - b);
+
+  /* state 契约:规则事实的单一来源(合法位 / 翻子 / 数子 / 终局 / 胜者)。
+   * 两个用例都是**确定局面**,不依赖搜索:
+   *   初始局面 → 4 个合法位(d3/c4/f5/e6)、各翻 1 子、2:2、60 空、未终局;
+   *   满盘(黑 40 白 24)→ over、reason='full'、黑(own)胜。
+   * 两分支的 moves/flips/计数字段必须逐项一致。 */
+  {
+    const mk = (cells) => {
+      let lo = 0, hi = 0;
+      for (const i of cells) { if (i < 32) lo |= 1 << i; else hi |= 1 << (i - 32); }
+      return [lo >>> 0, hi >>> 0];
+    };
+    const s0 = await eng.ask({ type: 'state', own: mk([28, 35]), opp: mk([27, 36]) });
+    const stNotes = [];
+    if (s0.type !== 'state') stNotes.push(`type 应为 'state',得到 ${s0.type}`);
+    if (JSON.stringify(s0.moves) !== JSON.stringify([19, 26, 37, 44])) stNotes.push('moves 应为 [19,26,37,44](d3/c4/f5/e6)');
+    if (!s0.flips || s0.flips.length !== 4 || s0.flips.some((f) => f.length !== 1)) stNotes.push('每手应各翻 1 子');
+    if (s0.oppHasMoves !== true) stNotes.push('oppHasMoves 应为 true(白方在初始局面也有棋)');
+    if (s0.ownCount !== 2 || s0.oppCount !== 2 || s0.empties !== 60) stNotes.push('子数/空格数应为 2/2/60');
+    if (s0.over !== false) stNotes.push('初始局面不应 over');
+
+    const all = Array.from({ length: 64 }, (_, i) => i);
+    const sf = await eng.ask({ type: 'state', own: mk(all.slice(0, 40)), opp: mk(all.slice(40)) });
+    if (sf.over !== true || sf.reason !== 'full' || sf.winner !== 'own') {
+      stNotes.push('满盘(黑 40 白 24)应 over / reason=full / winner=own');
+    }
+    if (stNotes.length) { fails += stNotes.length; for (const n of stNotes) console.log(`  ✗ state 契约:${n}`); }
+    else console.log('  state  → 初始 4 合法位 / 计数 2:2/60 空 ✓;满盘终局 reason=full winner=own ✓');
+  }
+
+  /* depth 覆盖契约:think 的 `depth` 只替换该档位的**深度上限**,end/budget 不变。
+   * 标定与跨实现对打靠它把深度钉住(两边难度表本来不同)。这里专门要一个**比档位
+   * 更浅**的深度:若实现忽略该字段,回包会给出档位表里的 depthMax,当场露馅。 */
+  {
+    const DK = 2;
+    const li = LEVELS.findIndex((l) => l.depth > DK);
+    if (li < 0) {
+      console.log(`  (跳过 depth 覆盖检查:没有 depth > ${DK} 的档位)`);
+    } else {
+      const r = await eng.ask({
+        type: 'think', id: 99,
+        own: [0x10000000, 0x8], opp: [0x08000000, 0x10],   // 初始局面(黑先)
+        level: li, depth: DK, empties: 60,
+      }, 240_000);
+      const dn = [];
+      if (r.error) dn.push(`回包带 error:${r.error}`);
+      if (r.depthMax !== DK) dn.push(`depthMax 应被 ${DK} 覆盖,得到 ${r.depthMax}(档位 ${li} 是 d${LEVELS[li].depth})`);
+      if (!NUM(r.depth) || r.depth > DK) dn.push(`实际 depth 不该超过覆盖值 ${DK},得到 ${r.depth}`);
+      if (dn.length) { fails += dn.length; for (const n of dn) console.log(`  ✗ depth 覆盖契约:${n}`); }
+      else console.log(`  depth  → 覆盖 d${LEVELS[li].depth} → d${DK} 生效(depthMax=${r.depthMax} · 实到 d${r.depth})✓`);
+    }
+  }
+
   console.log(`\n  用例                      档位   着法  评分      深度  节点      耗时      精确`);
   for (const li2 of levels) {
     if (!LEVELS[li2]) { console.log(`  ✗ 没有第 ${li2} 档难度(引擎只报了 ${LEVELS.length} 档)`); fails++; continue; }

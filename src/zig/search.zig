@@ -103,6 +103,21 @@ pub var nodes: u64 = 0;
 pub var node_limit: u64 = 0; // 0 = 不限
 pub var aborted: bool = false;
 
+/// 训练用的 **f32 权重表影子**。非 null 时叶子求值走它(pattern.evalFloat),
+/// 训练自对弈因此全程不经过 int8 量化 —— 这是 PTQ 的前提:量化只在训练结束后
+/// 做一次,循环里既不夹取也不舍入,量化误差不会逐轮累积进标签。
+///
+/// ⚠ 谁能置它,必须守住:
+///   · `train.zig` 在循环前置上、循环后清掉;
+///   · **A/B 必须清掉** —— A/B 的语义就是"打量化后的产物",留着影子表会拿
+///     f32 的分值去指导双方着法,对战结果直接失去意义(与 clearTT 那条同级);
+///   · wasm(`engine.zig`)永远不置 ⇒ 生产路径行为一行都没变。
+///
+/// ⚠ 另一处连带:`eps()` 用的是 `pattern.scales`。走影子表时它**仍是从起始书读的**
+///   (训练中不再 installQuant),比"真分辨率"大一点 —— 零窗口宽一点点只会少几次
+///   重搜,不会吞掉着法,可以接受。
+pub var eval_u: ?*const [pattern.PHASES][pattern.ORBITS]f32 = null;
+
 pub fn clearTT() void {
     @memset(std.mem.asBytes(&tt), 0);
     tt_ready = true;
@@ -118,8 +133,10 @@ pub fn terminalScore(b: rules.Board) f32 {
 /// 零窗口宽度。必须**小于**分值的量化步长,否则 PVS 会把"同分但更差"的着法
 /// 当成超出窗口而白重搜一遍;反过来太大会把真正更好的着法吞掉。
 /// 完全求解时分数是整数子差 → 0.5 足够;中局是整数加权和 × scale。
+/// ⚠ 每相位一个 scale 之后这里取**两者的小者**:eps 的要求是"小于量化步长",
+///   偏小是安全方向(偏大会吞掉真正更好的着法),取小者对两个相位都成立。
 inline fn eps(exact: bool) f32 {
-    return if (exact) 0.5 else @max(pattern.scale * 0.25, 1e-4);
+    return if (exact) 0.5 else @max(@min(pattern.scales[0], pattern.scales[1]) * 0.25, 1e-4);
 }
 
 fn hashOf(b: rules.Board, exact: bool) u64 {
@@ -188,6 +205,7 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact:
     if (ply + 2 >= MAX_PLY or depth <= 0) {
         if (exact) return terminalScore(b);
         evals += 1;
+        if (eval_u) |u| return pattern.evalFloat(b, u);
         return pattern.eval(b);
     }
 

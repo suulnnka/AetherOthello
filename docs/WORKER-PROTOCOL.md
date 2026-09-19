@@ -75,14 +75,52 @@ git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/comp
 { type: 'ping' }                    // → { type:'pong', tag, engine, ... }
 { type: 'levels' }                  // → { type:'levels', tag, engine, default, levels }
 {
+  type: 'state',                    // → { type:'state', id, moves, flips, oppHasMoves,
+  id,                               //     ownCount, oppCount, empties, over, reason, winner }
+  own: [lo, hi],                    // 行棋方位板(编码同 think)
+  opp: [lo, hi],
+}
+{
   type: 'think',
   id,                               // 请求号,原样回传
   own: [lo, hi],                    // 行棋方位板,两个 u32(lo = 第 1–4 行)
   opp: [lo, hi],                    // 对方位板
   level,                            // **本引擎**难度表的下标(见上;跨实现不可比)
-  empties,                          // 64 - 双方子数(UI 已经算好,原样回传)
+  depth,                            // 可选:覆盖该档位的搜索深度上限(见下)
+  empties,                          // 64 - 双方子数(state 回包里有,UI 透传即可)
 }
 ```
+
+### think 的 `depth`:可选覆盖
+
+`depth` **只替换该档位的深度上限**,`end` / `budget` 仍取档位。缺省(不传 /
+`null` / `NaN`)时行为与不带该字段完全一致,`depthMax` 回包反映**实际生效**的值。
+
+它存在的理由是标定与跨实现对打:两边的难度表本来就不同(zig 默认档 d10、
+main 默认档 d8),不把深度钉住就分不清"棋力差"来自实现还是来自参数。
+`tools/match-branches.mjs` 的 `--depth` 就走这个字段(默认 6 层)。
+UI 不需要它 —— UI 要的是"这一档的完整体验",不是一个孤立的深度。
+
+### state:局面规则事实(合法性 / 翻子 / 数子 / 终局 / 胜者)
+
+`state` 是 UI 渲染所需的**全部规则事实**的单一来源:
+
+- `moves` / `flips`:行棋方全部合法落点(bit = row*8+col)与各自会翻转的对方子
+  (与 moves 平行的数组)。
+- `oppHasMoves`:对方是否有合法落点 —— 仅当前方 `moves` 为空且 `oppHasMoves` 为真
+  时跳过回合;`over` 为真时终局。**跳过由调用方推得,worker 不维护回合状态**。
+- `ownCount` / `oppCount` / `empties`:双方子数与空格数(empties 即 think 的参数,
+  UI 透传即可,不必自己数子)。
+- `over` / `reason` / `winner`:双方都无棋(`reason: 'no-moves'`)或满盘
+  (`reason: 'full'`)即终局;`winner` 是**相对方**('own' / 'opp',null = 和棋,
+  子多者胜),调用方按自己查询时的行棋方映射回黑/白。
+
+worker 收到 `state` 不思考、不加载引擎。
+
+两个分支都必须实现本消息且结果一致(同一局面的各字段逐项相等):
+zig 分支当前是 worker 内的轻量 JS 位板遍历(wasm 暂无 legal 导出,等 zig 工具链
+可用可下沉为 wasm 导出),main 分支用 engine.js 的 genLegal + 位计数。
+`tools/probe-contract.mjs` 里有对拍用例。
 
 位板编码:`bit = row * 8 + col`(`row 0` = 最上面一行),`lo` 是 bit 0..31、`hi` 是 32..63。
 **u64 拆成两个 u32 是刻意的**:wasm 的 i64 到 JS 是 BigInt,边界上最容易写错
