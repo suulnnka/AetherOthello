@@ -17,13 +17,15 @@
 - `docs/WORKER-PROTOCOL.md`(本文)
 - `tools/probe-contract.mjs` —— 契约冒烟:在任一条分支上跑都必须全绿
 - `tools/compare-branches.mjs` —— 把两条分支拉到一起跑同一批局面,输出对比表
+- `tools/match-branches.mjs` —— 让两条分支**互相下整局**(配对开局 + 交换执子方),
+  这才回答得了"谁棋力强";单步对比回答不了
 
 `src/worker.js` 在两个分支上**同名不同实现**(背后分别是 JS 引擎 / wasm),但必须
 满足下面的消息契约。实现细节(是否用 wasm、置换表策略、评分是 centi-disc 还是子数)
 不属于契约 —— 那正是对比要看的东西。
 
 ```bash
-git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/compare-branches.mjs
+git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/compare-branches.mjs tools/match-branches.mjs
 # 应当没有任何输出
 ```
 
