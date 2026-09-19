@@ -1,7 +1,7 @@
 /* ============================================================
- * 黑白棋引擎 Worker —— **JS 通道**(main 分支,参照实现)
+ * 黑白棋引擎 Worker —— **JS 通道**(legacy_js 分支,参照实现)
  *
- * 契约见 docs/WORKER-PROTOCOL.md,与 zig 分支的 src/worker.js 完全一致:
+ * 契约见 docs/WORKER-PROTOCOL.md,与 main 分支(wasm 通道)的 src/worker.js 完全一致:
  *   ping                  → { type:'pong', tag, engine }
  *   levels                → { type:'levels', tag, engine, default, levels:[...] }
  *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, depth?, empties }
@@ -9,12 +9,15 @@
  *                             empties, ms, engine }
  *                           depth 可选:覆盖该档位的深度上限 —— 标定与跨实现
  *                           对打要"同深度比棋力"时用,缺省完全不变
+ *   { type:'state', id, own:[lo,hi], opp:[lo,hi] }
+ *                         → { type:'state', id, moves, flips, oppHasMoves,
+ *                             ownCount, oppCount, empties, over, reason, winner }
  * 换实现不换接口 —— UI、探针、对比脚本都不用改。
  * 难度表由**本分支自己**声明(src/levels.js),两套实现的档位参数不通用,所以
  * UI 一律发 {type:'levels'} 来问,不 import 那张表。
  *
  * 背后是 src/engine.js(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解)。
- * 与 zig 通道的差异**全在实现层**,接口上等价,共三处值得说明:
+ * 与 wasm 通道(main 分支)的差异**全在实现层**,接口上等价,共三处值得说明:
  *
  *   ① JS 引擎吃 8×8 数组 + 颜色,所以这里要把位板摊回数组。行棋方一律记成
  *      'b' —— 黑白棋对颜色是**对称**的,位板只表达"我方/对方",引擎内部也只认
@@ -25,7 +28,7 @@
  *      这两个时刻把控制权交回来)。语义与 zig 通道相同:返回最后一个跑完的深度,
  *      所以 aborted 时 exact 必须报 false(留下的是启发式估值,不是终局判决)。
  * ============================================================ */
-import { think, toBitboard, genMoves, PLO, PHI, OLO, OHI, MLO, MHI } from './engine.js';
+import { think, toBitboard, genMoves, moveFlips, popcnt, PLO, PHI, OLO, OHI, MLO, MHI, _lo, _hi } from './engine.js';
 import { LEVELS, DEFAULT_LEVEL } from './levels.js';
 
 /* ENGINE_TAG 让下游 webos 的体积闸门(tools/check-size.mjs)能在 dist 里认出
@@ -54,6 +57,54 @@ function hasMove(board) {
   return (MLO | MHI) !== 0;
 }
 
+/** 位板两半 → 升序格号数组 */
+function maskSquares(lo, hi) {
+  const out = [];
+  for (let i = 0; i < 32; i++) if ((lo >>> i) & 1) out.push(i);
+  for (let i = 32; i < 64; i++) if ((hi >>> (i - 32)) & 1) out.push(i);
+  return out;
+}
+
+/** 行棋方(数组里记 'b' 的一方)的全部合法着法与各自翻子 —— 借引擎自己的规则
+ *  原语(genMoves / moveFlips),与 think() 同源:state 报出的合法位就是引擎
+ *  真正会考虑的位,不会出现"UI 给了引擎不认的着法"的分叉。 */
+function legalWithFlips(board) {
+  toBitboard(board, 'b');
+  genMoves(PLO, PHI, OLO, OHI);
+  const sqs = maskSquares(MLO, MHI);       // 先快照:moveFlips 不动 MLO/MHI,但求值顺序别依赖它
+  const moves = [], flips = [];
+  for (const sq of sqs) {
+    const mlo = sq < 32 ? 1 << sq : 0, mhi = sq < 32 ? 0 : 1 << (sq - 32);
+    moveFlips(mlo, mhi, OLO, OHI);
+    flips.push(maskSquares(_lo, _hi));     // _lo/_hi 是 live binding,moveFlips 写完即读
+    moves.push(sq);
+  }
+  return { moves, flips };
+}
+
+/** state 回包的规则事实(own/opp 是相对方;winner 也用 'own'/'opp',null = 和棋):
+ *  moves/flips、对方有无棋、双方子数与空格、终局与胜者 —— 字段口径与协议一致。 */
+function describeState(ownLo, ownHi, oppLo, oppHi) {
+  const mine = legalWithFlips(toArray(ownLo, ownHi, oppLo, oppHi));
+  const theirs = legalWithFlips(toArray(oppLo, oppHi, ownLo, ownHi));
+  const ownCount = popcnt(ownLo) + popcnt(ownHi);
+  const oppCount = popcnt(oppLo) + popcnt(oppHi);
+  const empties = 64 - ownCount - oppCount;
+  const over = mine.moves.length === 0 && theirs.moves.length === 0;
+  let reason = null, winner = null;
+  if (over) {
+    reason = empties === 0 ? 'full' : 'no-moves';
+    winner = ownCount > oppCount ? 'own' : ownCount < oppCount ? 'opp' : null;
+  }
+  return {
+    moves: mine.moves,
+    flips: mine.flips,
+    oppHasMoves: theirs.moves.length > 0,
+    ownCount, oppCount, empties,
+    over, reason, winner,
+  };
+}
+
 self.onmessage = async (e) => {
   const d = e.data;
   if (!d) return;
@@ -70,6 +121,13 @@ self.onmessage = async (e) => {
 
   if (d.type === 'ping') {
     self.postMessage({ type: 'pong', tag: ENGINE_TAG, engine: 'js' });
+    return;
+  }
+
+  if (d.type === 'state') {
+    /* 规则查询:不思考、不搜索,借引擎的规则原语算一遍(见 describeState) */
+    const s = describeState(d.own[0], d.own[1], d.opp[0], d.opp[1]);
+    self.postMessage({ type: 'state', id: d.id, tag: ENGINE_TAG, ...s });
     return;
   }
   if (d.type !== 'think') return;
