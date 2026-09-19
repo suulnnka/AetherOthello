@@ -69,6 +69,21 @@ var gio: std.Io = undefined;
 fn say(comptime fmt: []const u8, args: anytype) void {
     std.debug.print(fmt ++ "\n", args);
 }
+/// 把每相位一组的数拼成 "x / y / …"。相位数是编译期常量但格式串没法展开成
+/// 固定槽位,用固定缓冲拼一次(按值带回 256 字节,不值当动分配器)。
+const Joined = struct { buf: [256]u8, len: usize };
+fn joinBy(comptime fmt: []const u8, xs: anytype) Joined {
+    var s: Joined = .{ .buf = undefined, .len = 0 };
+    for (xs, 0..) |x, i| {
+        if (i > 0) {
+            @memcpy(s.buf[s.len..][0..3], " / ");
+            s.len += 3;
+        }
+        const w = std.fmt.bufPrint(s.buf[s.len..], fmt, .{x}) catch break;
+        s.len += w.len;
+    }
+    return s;
+}
 fn nanos() i96 {
     return std.Io.Timestamp.now(gio, .awake).nanoseconds;
 }
@@ -640,18 +655,22 @@ fn calibrate(rows: []const Row, u: *const [pattern.PHASES][pattern.ORBITS]f32, q
             break :blk calibErr(rows, u, q, ref_sc, null);
         };
         var parts: [pattern.PHASES]f64 = undefined;
-        var cp: [pattern.PHASES]u32 = undefined;
         for (0..pattern.PHASES) |ph| {
-            cp[ph] = countClip(u.*, ref_sc, ph);
-            parts[ph] = @as(f64, @floatFromInt(cp[ph])) * 100.0 / total;
+            const cp = countClip(u.*, ref_sc, ph);
+            parts[ph] = @as(f64, @floatFromInt(cp)) * 100.0 / total;
         }
-        say("    对照 · 起始书方案(夹到 ±{d:.1}/±{d:.1})套到这份表上 ⇒ 截断 {d:.1}%/{d:.1}% · RMSE {d:.3} 子", .{
-            ref_sc[0] * 127.0, ref_sc[1] * 127.0, parts[0], parts[1], @sqrt(e),
+        var rs: [pattern.PHASES]f32 = undefined;
+        for (&rs, ref_sc) |*d, s| d.* = s * 127.0;
+        const jr = joinBy("±{d:.1}", rs);
+        const jp = joinBy("{d:.1}%", parts);
+        say("    对照 · 起始书方案(夹到 {s})套到这份表上 ⇒ 截断 {s} · RMSE {d:.3} 子", .{
+            jr.buf[0..jr.len], jp.buf[0..jp.len], @sqrt(e),
         });
     }
-    const clipped = quantize(u.*, q, sc); // q 落定在选中那两档
+    const clipped = quantize(u.*, q, sc); // q 落定在选中那几档
     const err = calibErr(rows, u, q, sc, null);
-    say("  ⇒ 两相位 scale {d:.6} / {d:.6} · 合计截断 {d} 条 · RMSE {d:.3} 子", .{ sc[0], sc[1], clipped, @sqrt(err) });
+    const sc_txt = joinBy("{d:.6}", sc);
+    say("  ⇒ 各相位 scale {s} · 合计截断 {d} 条 · RMSE {d:.3} 子", .{ sc_txt.buf[0..sc_txt.len], clipped, @sqrt(err) });
     return Calib{ .scales = sc, .err = err, .clipped = clipped };
 }
 
@@ -885,7 +904,8 @@ pub fn main(init: std.process.Init) !void {
         say("✗ pattern.init 失败(步 {d})", .{pattern.failStage});
         std.process.exit(1);
     }
-    say("轨道 {d} 条/阶段 · 制 0 {d} 条 · 起始 scale {d:.6} / {d:.6}", .{ pattern.ORBITS, countZero(), pattern.scales[0], pattern.scales[1] });
+    var scales_txt = joinBy("{d:.6}", pattern.scales);
+    say("轨道 {d} 条/阶段 · 制 0 {d} 条 · 起始 scale {s}", .{ pattern.ORBITS, countZero(), scales_txt.buf[0..scales_txt.len] });
     // 起始书的 scale 留一份:④ 定标时拿它当对照("手调量程"量出来是多少误差)。
     // ⚠ 必须现在抄 —— 循环结束后 installQuant 会改写 pattern.scales。
     const base_scales = pattern.scales;
@@ -962,37 +982,73 @@ pub fn main(init: std.process.Init) !void {
                 secs(t0),
             });
 
-        // ② 分相位(同一相位才是同一张表;两相位必须各解各的)
+        // ② 按相位分段(同一相位才是同一张表;**每个相位必须各解各的**)。
+        //    计数 + 原地交换归位,不保序(最小二乘不看行序),一趟 O(n)。
+        //    ⚠ 归位的判断必须是「i 已落在 rows[i].phase 的段内」,**不能**用
+        //      `cur[ph] == i`——那个写法会把行换出 total 边界、跟未初始化内存
+        //      交换,污染整个数组且 ReleaseFast 下静默 UB(踩过:相位 1..5 的
+        //      起始 MSE 全变成 0)。
         const t1 = nanos();
-        var fidx: usize = 0;
-        var i: usize = 0;
-        while (i < total) : (i += 1) {
-            if (rows[i].phase == 0) {
-                std.mem.swap(Row, &rows[i], &rows[fidx]);
-                fidx += 1;
+        var seg: [pattern.PHASES + 1]usize = undefined;
+        var cnt = [_]usize{0} ** pattern.PHASES;
+        {
+            for (rows[0..total]) |r| {
+                if (r.phase >= pattern.PHASES) @panic("行相位越界");
+                cnt[r.phase] += 1;
+            }
+            var off: usize = 0;
+            for (0..pattern.PHASES) |ph| {
+                seg[ph] = off;
+                off += cnt[ph];
+            }
+            seg[pattern.PHASES] = off;
+            var cur: [pattern.PHASES]usize = seg[0..pattern.PHASES].*;
+            var i: usize = 0;
+            while (i < total) : (i += 1) {
+                while (true) {
+                    const ph = rows[i].phase;
+                    if (i >= seg[ph] and i < seg[ph + 1]) break; // 已在本相位段内 = 已归位
+                    const dst = cur[ph];
+                    if (dst >= seg[ph + 1]) @panic("分段交换越界"); // 计数与内容不一致,别静默吞
+                    std.mem.swap(Row, &rows[i], &rows[dst]);
+                    cur[ph] += 1;
+                }
+            }
+            // 分段自检:重数一遍必须与计数一致 —— 归位算法写错时这一步当场拦住
+            var cnt2 = [_]usize{0} ** pattern.PHASES;
+            for (rows[0..total]) |r| cnt2[r.phase] += 1;
+            for (0..pattern.PHASES) |ph| {
+                if (cnt2[ph] != cnt[ph]) @panic("分段后相位行数与计数不一致");
             }
         }
-        const r0 = rows[0..fidx];
-        const r1 = rows[fidx..total];
         // 多线程下行数得落在本轮的 total 里,④ 定标要用
         n_rows = total;
-        say("  相位 0(子数 ≤34)行 {d} · 相位 1 行 {d}", .{ r0.len, r1.len });
+        {
+            const cnt_txt = joinBy("{d}", cnt);
+            say("  各相位行 {s}", .{cnt_txt.buf[0..cnt_txt.len]});
+        }
 
-        const x0 = try arena.alloc(f32, pattern.ORBITS);
-        const x1 = try arena.alloc(f32, pattern.ORBITS);
-        @memcpy(x0, &u[0]);
-        @memcpy(x1, &u[1]);
-        const m0 = mse(r0, x0);
-        const m1 = mse(r1, x1);
-        const lam0 = cfg.mu * diagMean(r0);
-        const lam1 = cfg.mu * diagMean(r1);
-        say("  岭 λ:{d:.4} / {d:.4} · 起始 MSE {d:.3} / {d:.3}", .{ lam0, lam1, m0, m1 });
+        // 各相位各解各的(CG 热启动 = 上一轮的 u[ph];空相位保留旧书)
+        const xs = try arena.alloc([]f32, pattern.PHASES);
+        for (0..pattern.PHASES) |ph| {
+            xs[ph] = try arena.alloc(f32, pattern.ORBITS);
+            @memcpy(xs[ph], &u[ph]);
+        }
         const t2 = nanos();
-        try solveCg(arena, r0, x0, lam0, cfg.cg, true);
-        try solveCg(arena, r1, x1, lam1, cfg.cg, true);
+        for (0..pattern.PHASES) |ph| {
+            const rp = rows[seg[ph]..seg[ph + 1]];
+            if (rp.len == 0) continue;
+            const lam = cfg.mu * diagMean(rp);
+            say("  相位 {d}:行 {d} · 岭 λ {d:.4} · 起始 MSE {d:.3}", .{ ph, rp.len, lam, mse(rp, xs[ph]) });
+            try solveCg(arena, rp, xs[ph], lam, cfg.cg, true);
+        }
         const t3 = nanos();
-        say("  拟合后 MSE {d:.3} / {d:.3} · CG {d:.2} s · 统计 {d:.2} s",
-            .{ mse(r0, x0), mse(r1, x1), span(t2, t3), span(t1, t2) });
+        {
+            var fits: [pattern.PHASES]f64 = undefined;
+            for (0..pattern.PHASES) |ph| fits[ph] = mse(rows[seg[ph]..seg[ph + 1]], xs[ph]);
+            const f_txt = joinBy("{d:.3}", fits);
+            say("  拟合后 MSE {s} · CG {d:.2} s · 统计 {d:.2} s", .{ f_txt.buf[0..f_txt.len], span(t2, t3), span(t1, t2) });
+        }
 
         // ③ 换权重 —— **纯 f32,不夹取、不量化**
         //    旧版在这里做 clamp + quantize + installQuant 并当场生效,
@@ -1001,12 +1057,10 @@ pub fn main(init: std.process.Init) !void {
             if (pattern.orb_zero[o] != 0) {
                 // 对称性强制作 0 的轨道必须清干净:evalFloat 不像 installQuant
                 // 那样跳过它们,留了残值会让 f32 求值和 int8 求值悄悄分叉
-                u[0][o] = 0;
-                u[1][o] = 0;
+                for (0..pattern.PHASES) |ph| u[ph][o] = 0;
                 continue;
             }
-            u[0][o] = x0[o];
-            u[1][o] = x1[o];
+            for (0..pattern.PHASES) |ph| u[ph][o] = xs[ph][o];
         }
         // 未夹取的幅值每轮都打:它是定 u_max 的唯一依据(PTQ 就这一个旋钮),
         // 也是"拟合到底想把权重拉到多大"的直接读数 —— 这个数以前看不到
@@ -1018,7 +1072,8 @@ pub fn main(init: std.process.Init) !void {
                 if (v > mm[ph]) mm[ph] = v;
             }
         }
-        say("  换权重(f32 · 不量化) · 未夹取 max|u| {d:.3} / {d:.3} 子", .{ mm[0], mm[1] });
+        const mm_txt = joinBy("{d:.3}", mm);
+        say("  换权重(f32 · 不量化) · 未夹取 max|u| {s} 子", .{mm_txt.buf[0..mm_txt.len]});
     }
 
     // ④ PTQ:自动定标 + 量化 + 落盘 —— 全程只做这一次
@@ -1026,9 +1081,7 @@ pub fn main(init: std.process.Init) !void {
     search.eval_u = null;
     for (0..pattern.ORBITS) |o| {
         if (pattern.orb_zero[o] != 0) {
-            u[0][o] = 0;
-            u[1][o] = 0;
-            continue;
+            for (0..pattern.PHASES) |ph| u[ph][o] = 0;
         }
     }
     const cal = calibrate(rows[0..n_rows], &u, q, base_scales);
@@ -1043,7 +1096,8 @@ pub fn main(init: std.process.Init) !void {
         _ = quantize(u, qref, base_scales);
         const rb = try makeBlob(arena, qref, base_scales);
         try std.Io.Dir.cwd().writeFile(gio, .{ .sub_path = cfg.ref_out, .data = rb });
-        say("  对照书(手调定标)已写出 {s} · scale {d:.6} / {d:.6}", .{ cfg.ref_out, base_scales[0], base_scales[1] });
+        const bs_txt = joinBy("{d:.6}", base_scales);
+        say("  对照书(手调定标)已写出 {s} · scale {s}", .{ cfg.ref_out, bs_txt.buf[0..bs_txt.len] });
         break :blk rb;
     };
 
@@ -1060,7 +1114,8 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(1);
     }
     const same = std.mem.eql(u8, std.mem.asBytes(&ref), std.mem.asBytes(&pattern.wt));
-    say("\n已写出 {d} 字节到 {s} · scale {d:.6} / {d:.6}", .{ blob.len, cfg.out, sc[0], sc[1] });
+    const w_txt = joinBy("{d:.6}", sc);
+    say("\n已写出 {d} 字节到 {s} · scale {s}", .{ blob.len, cfg.out, w_txt.buf[0..w_txt.len] });
     say("落盘回读自检:{s}", .{if (same) "✓ 与量化后的查表逐字节相同" else "✗ 不一致(量化/折叠口径分叉)"});
 
     if (!cfg.no_ab and cfg.ab > 0) {

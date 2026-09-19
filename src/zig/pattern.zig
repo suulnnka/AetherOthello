@@ -30,22 +30,26 @@ const std = @import("std");
 const rules = @import("rules.zig");
 
 pub const PTN_COUNT: usize = 38;
-pub const PHASES: usize = 2;
+/// 相位数 = 6:同一局部形状的价值随局势推进变化(开局行动力为王 → 残局稳定子
+/// 为王),一套权重表达不了,所以按子数分档、每档一套完整的轨道权重。
+/// 分界见 `phaseOf`(14/24/34/44/54)。档数必须在**训练时**定死:事后把 6 档
+/// 平均成 2 档实测差 5.2 子(kix4 实验);反过来 2 档从零训对 6 档只差 1.7 子
+/// —— 这是"多档值多少"的合理预期量级。
+pub const PHASES: usize = 6;
 pub const PER_PHASE: u32 = 133_974;
 pub const ORBITS: u32 = 9_475;
 
-/// blob 头 20 字节的真实布局(照 installQuant 的读法,**别照字面猜**):
+/// blob 头布局(照 installQuant 的读法,**别照字面猜**):
 ///   [0..4)  u32 magic  [4] u8 version  [5] u8 phases  [6..8) 保留
-///   [8..12) u32 orbits [12..16) f32 scale(相位0) [16..20) f32 scale(相位1)
+///   [8..12) u32 orbits [12..12+4×phases) 每相位一个 f32 scale
 /// 注意 version/phases 是**单字节**,不是 u32 —— 按 u32 读会读成 0x00000201=513。
 ///
-/// ⚠ **version 2 起每相位一个 scale**(头从 16 字节涨到 20)。两个相位的权重幅值
-///   能差一倍,共用一个全局 scale 时,幅值小的那个相位白丢一半分辨率;而 int8 的
-///   量程是按各相位自己的 max 定的,拆开是纯粹的收益。
-///   version 1 的书(v1,头 16 字节)等价于"两相位填同一个 scale",可无损迁移。
-pub const BLOB_VERSION: u8 = 2;
+/// ⚠ **version 3 起 6 相位**(头 12 + 4×6 = 36 字节);v2 = 2 相位(头 20 字节),
+///   v1 = 2 相位共用一个 scale(头 16 字节)。每相位一个 scale 的理由:两个相位
+///   的权重幅值能差一倍,共用一个会让幅值小的那个相位白丢一半分辨率。
+pub const BLOB_VERSION: u8 = 3;
 pub const BLOB_MAGIC: u32 = 0x4F54_484C; // 'OTHL'
-pub const BLOB_HEADER: usize = 20;
+pub const BLOB_HEADER: usize = 12 + 4 * PHASES;
 
 const POW3 = [9]u32{ 1, 3, 9, 27, 81, 243, 729, 2187, 6561 };
 
@@ -259,11 +263,14 @@ var zflag: [PER_PHASE]u8 = undefined;
 /// 训练器必须跳过它们 —— 无论怎么更新,init 都会把它们抹回 0。
 pub var orb_zero: [ORBITS]u8 = undefined;
 
-/// 阶段划分:子数 ≤ 34 用阶段 0,之后用阶段 1。
-/// 与 kix4 的 phaseOf(f) = max(1, min(2, ceil(f/30)))(f = 子数 − 4)等价。
-/// 阶段数必须在**训练时**定死:事后再把 6 档平均成 2 档实测差 5.2 子。
+/// 阶段划分:子数 ≤14/24/34/44/54 依次落相位 0..4,更高是相位 5。
+/// 分界照抄 kix4 的 6 档公式 ceil((子数−4)/10)(f = 子数 − 4,开局 4 子)。
+/// **34 仍是分界之一** ⇒ 旧 2 相位的书可以按区间无损展开成 6 档当训练初始
+/// (相位 0..2 ← 旧相位 0,相位 3..5 ← 旧相位 1,求值处处相等)。
+/// 阶段数必须在**训练时**定死:事后归并/拆分都有实测代价(见文件头)。
 pub inline fn phaseOf(discs: u32) usize {
-    return if (discs <= 34) 0 else 1;
+    const f = discs -| 4; // 0..60(kix4 的 1 基 ceil(f/10) − 1,f=0 并入相位 0)
+    return @min((f -| 1) / 10, PHASES - 1);
 }
 
 fn readU32(b: []const u8, o: usize) u32 {
@@ -414,7 +421,7 @@ pub fn evalInt(b: rules.Board) i32 {
 /// 与量化版共用 orbit/sigma 表,所以"自对弈看到的分值"和"落盘后跑出来的值"
 /// 只差一次 int8 舍入,不会出现两套折叠口径。
 ///
-/// ⚠ 收**指针**而不是值:`[PHASES][ORBITS]f32` 是 75,800 字节,按值传会在
+/// ⚠ 收**指针**而不是值:`[PHASES][ORBITS]f32` 是 227,400 字节(6 相位),按值传会在
 ///   **每个叶子节点**上复制一遍 —— 一趟 38 个槽的乘加省下的,一次复制全赔回去。
 ///
 /// ⚠ 与 `installQuant` 的一处不对称:那边会把 `orb_zero` 的轨道强制写成 0,

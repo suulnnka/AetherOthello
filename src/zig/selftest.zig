@@ -543,7 +543,17 @@ fn searchBench(arena: std.mem.Allocator, blobPath: []const u8, depth: u32, count
         say("✗ pattern.init 失败(步 {d})", .{pattern.failStage});
         std.process.exit(1);
     }
-    say("中局搜索体检 · 深度 {d} · 权重 {s}(scale {d:.6} / {d:.6})", .{ depth, blobPath, pattern.scales[0], pattern.scales[1] });
+    var sc_buf: [256]u8 = undefined;
+    var sc_len: usize = 0;
+    for (pattern.scales) |s| {
+        if (sc_len > 0) {
+            @memcpy(sc_buf[sc_len..][0..3], " / ");
+            sc_len += 3;
+        }
+        const w = std.fmt.bufPrint(sc_buf[sc_len..], "{d:.6}", .{s}) catch break;
+        sc_len += w.len;
+    }
+    say("中局搜索体检 · 深度 {d} · 权重 {s}(scale {s})", .{ depth, blobPath, sc_buf[0..sc_len] });
 
     var prng = std.Random.DefaultPrng.init(0x5EA5_C4ED);
     const rnd = prng.random();

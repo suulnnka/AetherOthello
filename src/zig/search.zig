@@ -138,10 +138,13 @@ pub fn terminalScore(b: rules.Board) f32 {
 /// 零窗口宽度。必须**小于**分值的量化步长,否则 PVS 会把"同分但更差"的着法
 /// 当成超出窗口而白重搜一遍;反过来太大会把真正更好的着法吞掉。
 /// 完全求解时分数是整数子差 → 0.5 足够;中局是整数加权和 × scale。
-/// ⚠ 每相位一个 scale 之后这里取**两者的小者**:eps 的要求是"小于量化步长",
-///   偏小是安全方向(偏大会吞掉真正更好的着法),取小者对两个相位都成立。
+/// ⚠ 相位各有一个 scale,这里取**全部相位的最小者**:eps 的要求是"小于量化
+///   步长",偏小是安全方向(偏大会吞掉真正更好的着法),取最小对每个相位都成立。
 inline fn eps(exact: bool) f32 {
-    return if (exact) 0.5 else @max(@min(pattern.scales[0], pattern.scales[1]) * 0.25, 1e-4);
+    if (exact) return 0.5;
+    var m = pattern.scales[0];
+    for (pattern.scales[1..]) |s| m = @min(m, s);
+    return @max(m * 0.25, 1e-4);
 }
 
 fn hashOf(b: rules.Board, exact: bool) u64 {

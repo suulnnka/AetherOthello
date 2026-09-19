@@ -132,21 +132,23 @@ ok(X.engineOrbits() === 9475, `engineOrbits() = ${X.engineOrbits()}(期望 9475)
 
 const blob = fs.readFileSync('src/zig/weights.bin');
 const dvv = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
-// 头布局(v2,20 字节):magic u32@0 / version u8@4 / phases u8@5 / 保留 2B /
-//                     orbits u32@8 / scale(相位0) f32@12 / scale(相位1) f32@16
-// ⚠ v1 只有 16 字节头、两相位共用一个 scale;v2 起每相位一个。改这里必须同步改
-//   src/zig/pattern.zig 的 BLOB_HEADER/BLOB_VERSION 与 tools/gen-blob.mjs。
-const HEADER_V2 = 20;
-const bMagic = dvv.getUint32(0, true), bVer = blob[4], bPh = blob[5];
+// 头布局(v3):magic u32@0 / version u8@4 / phases u8@5 / 保留 2B / orbits u32@8
+//              / 每相位一个 f32 scale @12..(12+4×phases)
+// ⚠ v2 = 2 相位(头 20 字节)、v1 = 16 字节头共用 scale —— 均已成历史。
+//   改这里必须同步改 src/zig/pattern.zig 的 BLOB_HEADER/BLOB_VERSION 与 tools/gen-blob.mjs。
+const bPh = blob[5];
+const HEADER_V3 = 12 + 4 * bPh;
+const bMagic = dvv.getUint32(0, true), bVer = blob[4];
 const bOrb = dvv.getUint32(8, true);
-const bScale0 = dvv.getFloat32(12, true), bScale1 = dvv.getFloat32(16, true);
+const bScale0 = dvv.getFloat32(12, true);
+const allScales = Array.from({ length: bPh }, (_, p) => dvv.getFloat32(12 + 4 * p, true));
 ok(bMagic === 0x4F54_484C, `磁盘权重书 magic = 0x${bMagic.toString(16).toUpperCase()}('OTHL')`);
-ok(bVer === 2, `磁盘权重书 version = ${bVer}(v2 = 每相位一个 scale)`);
+ok(bVer === 3, `磁盘权重书 version = ${bVer}(v3 = 6 相位,头 12+4×phases)`);
 ok(X.engineWeightBytes() === blob.length,
-  `engineWeightBytes() = ${X.engineWeightBytes()} = ${HEADER_V2} + 2×${X.engineOrbits()} = ${blob.length} B`);
-ok(bOrb === X.engineOrbits() && bPh === 2, `磁盘头部 phases=${bPh} orbits=${bOrb} 与 wasm 一致`);
+  `engineWeightBytes() = ${X.engineWeightBytes()} = ${HEADER_V3} + ${bPh}×${X.engineOrbits()} = ${blob.length} B`);
+ok(bOrb === X.engineOrbits() && bPh === 6, `磁盘头部 phases=${bPh} orbits=${bOrb} 与 wasm 一致`);
 ok(Math.abs(bScale0 - X.engineScale()) < 1e-9,
-  `engineScale()(相位 0)= ${X.engineScale()} = 磁盘头部 f32 ${bScale0} · 相位 1 = ${bScale1}`);
+  `engineScale()(相位 0)= ${X.engineScale()} = 磁盘头部 f32 ${bScale0} · 其余 ${allScales.slice(1).map((s) => s.toFixed(4)).join(' / ')}`);
 
 /* ---------- C. 对称不变性(专治 lo/hi 拆装)---------- */
 console.log('\n[C] 16 元对称不变性(lo/hi 拆装 + 权重书加载)');
