@@ -64,26 +64,43 @@ if (has('--zero')) {
   const n = writeBlob(out, scales, new Array(3 * ORBITS).fill(0));
   console.log(`已生成零占位 blob:${out}  ${n} 字节(3 阶段 × ${ORBITS} 轨道 + 24 字节头)`);
 } else if (has('--expand')) {
-  // v2(2 相位)→ v3(3 相位):相位 0 ← 旧相位 0,相位 1/2 ← 旧相位 1。
-  // 求值处处与原书相等(34 是新分界之一),展开只改变"结构"不改变"棋力",
-  // 专门用来给 3 档训练做热启动初始。
+  // v2(2 相位)→ v3(P 相位,P 由 --phases 指定,须整除 60):
+  // 新相位 p ← 按该档**中点子数**落在 34 的哪一侧取旧相位。
+  // 34 恰是新分界之一时(P=2/4/6/10…)展开逐点无损;不是时(如 P=3/5 的
+  // 中点跨 34)只代表多数区域,展开书比源书略弱 —— 扫描这类 P 时 A/B 基线
+  // 偏弱,读数要打折扣。
   const inPath = argOf('--in', 'src/zig/weights.bin');
   const out = argOf('--out', inPath);
+  const P = Number(argOf('--phases', 3));
+  if (!Number.isInteger(P) || P < 1 || 60 % P !== 0) {
+    console.log(`✗ --phases ${P} 非法(须为 60 的约数)`);
+    process.exit(1);
+  }
   const r = readBlob(inPath);
   if (r.version !== 2 || r.phases !== 2) {
     console.log(`✗ ${inPath} 是 v${r.version}/${r.phases} 相位,--expand 只吃 v2 的 2 相位书`);
     process.exit(1);
   }
-  const [s0, s1] = r.scales;
-  const scales = [s0, s1, s1];
-  const src = [0, 1, 1]; // 新相位 p ← 旧相位 src[p]
-  const data = new Array(3 * ORBITS);
+  const span = 60 / P;
+  // ceil 家族的档区间:第 p 档(p≥1)覆盖 f ∈ [p·span+1, (p+1)·span],
+  // 即子数 [4+p·span+1, 4+(p+1)·span];第 0 档 [4, 4+span]。
+  // 映射与"无损"判定都按这个区间算(中点定旧相位;整档在 34 一侧才算无损)。
+  const scales = [], src = [];
+  let lossless = true;
+  for (let p = 0; p < P; p++) {
+    const lo = p === 0 ? 4 : 4 + p * span + 1;
+    const hi = 4 + (p + 1) * span;
+    if (hi <= 34) src.push(0);
+    else if (lo >= 35) src.push(1);
+    else { src.push((lo + hi) / 2 <= 34 ? 0 : 1); lossless = false; } // 跨 34:取中点侧
+    scales.push(r.scales[src[p]]);
+  }
+  const data = new Array(P * ORBITS);
   for (let o = 0; o < ORBITS; o++) {
-    for (let p = 0; p < 3; p++) data[p * ORBITS + o] = r.data[src[p] * ORBITS + o];
+    for (let p = 0; p < P; p++) data[p * ORBITS + o] = r.data[src[p] * ORBITS + o];
   }
   const n = writeBlob(out, scales, data);
-  console.log(`✓ v2 → v3 展开:${out}  ${r.bytes} → ${n} 字节 · scale ${s0.toFixed(6)} / ${s1.toFixed(6)}×2`);
-  console.log('  相位 0 ← 旧相位 0,相位 1/2 ← 旧相位 1(34 子仍是分界,求值处处相等)');
+  console.log(`✓ v2 → v3(P=${P})展开:${out}  ${r.bytes} → ${n} 字节 · 档映射 ${src.join('')}${lossless ? '(34 对齐,无损)' : '(34 不对齐,基线略弱)'}`);
 } else if (has('--stat')) {
   const inPath = argOf('--in', 'src/zig/weights.bin');
   const { version, phases, orbits, scales, data, bytes } = readBlob(inPath);

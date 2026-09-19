@@ -146,7 +146,8 @@ ok(bMagic === 0x4F54_484C, `磁盘权重书 magic = 0x${bMagic.toString(16).toUp
 ok(bVer === 3, `磁盘权重书 version = ${bVer}(v3 = 每相位一个 scale,相位数由头声明)`);
 ok(X.engineWeightBytes() === blob.length,
   `engineWeightBytes() = ${X.engineWeightBytes()} = ${HEADER_V3} + ${bPh}×${X.engineOrbits()} = ${blob.length} B`);
-ok(bOrb === X.engineOrbits() && bPh === 3, `磁盘头部 phases=${bPh} orbits=${bOrb} 与 wasm 一致`);
+ok(bOrb === X.engineOrbits() && blob.length === HEADER_V3 + bPh * bOrb,
+  `磁盘头部自洽:phases=${bPh} orbits=${bOrb},长度 ${blob.length} = ${HEADER_V3}+${bPh}×${bOrb}`);
 ok(Math.abs(bScale0 - X.engineScale()) < 1e-9,
   `engineScale()(相位 0)= ${X.engineScale()} = 磁盘头部 f32 ${bScale0} · 其余 ${allScales.slice(1).map((s) => s.toFixed(4)).join(' / ')}`);
 

@@ -125,6 +125,10 @@ const Cfg = struct {
     /// 每局用「轮种子 + 局号」独立派生随机流、每局前清自己的置换表,
     /// 所以**结果与线程数无关** —— 改 --threads 重跑,产出逐字节一致。
     threads: u32 = 0,
+    /// 正规方程求解器:lsqr(默认;最小二乘上直接解,κ(A) 而非 κ(A)²,
+    /// 治"列相关型"病态)/ pcg(Jacobi 预条件,治"列尺度悬殊"型)/ cg(历史基线)。
+    /// --cgi 控制迭代上限。
+    solver: []const u8 = "lsqr",
     out: []const u8 = "src/zig/weights.bin",
     /// 非空 ⇒ 额外落一本**对照书**:同一个 f32 权重、但用**起始书那套定标**
     /// (先夹到 ±127·scale 再量化)。两本书只差定标 ⇒ 可以直接对打,
@@ -199,6 +203,12 @@ fn rowOf(b: rules.Board, target: f32, w: f32) ?Row {
 /// 正规矩阵不显式构造:A 的第 i 行就是 rows[i] 那 ≤38 个 (o,s),样本权重在 row.w;
 /// (AᵀWA)p 用"先 A 后 Aᵀ"两趟稀疏扫描算出来。x 热启动(上一轮的 u)⇒ 收敛很快。
 ///
+/// ⚠ **本实现有个陈年缺陷,别再当参照系**:迭代里 mulAtA 只算 AᵀWA·p,**不含
+///   λI·p**(初始残差却含 λ)——实际在解 AᵀWA·x = AᵀWb − λ·x₀(随热启动漂移的
+///   伪岭系统),且 κ = κ(A)² 无底,>34 区段整段停滞(残差比 1.000)的根因就是它。
+///   带岭的真系统条件数好得多:LSQR 十几轮解到 1e-13。留在此仅为复现历史书,
+///   训练一律走 solveLsqr。
+///
 /// ⚠ **内部一律 f64**。正规方程的条件数是 κ(A)²,这套特征又高度相关
 ///   (38 张斜线/行列表大面积重叠)、而且相位 0 基本是欠定的。
 ///   用 f32 实测:残差²从 1.3e1 一路"收敛"到 8.3e11,拟合后 MSE 1e15 ——
@@ -257,6 +267,225 @@ fn solveCg(alloc: std.mem.Allocator, rows: []const Row, x: []f32, lambda: f32, m
     for (0..n) |i| x[i] = @floatCast(best[i]);
     if (verbose) {
         say("    CG {d} 次迭代 · 残差²/初值 {e:.3}", .{ it, best_rs / rs0 });
+    }
+}
+
+/// **Jacobi 预条件版 CG**(与 solveCg 同一方程、同一接口):把每列按 √(对角元)
+/// 归一,消掉"轨道热度/符号平方和悬殊"贡献的那部分条件数。对**相关型**病态
+/// (列近线性相关,盘面越满越严重)无能为力 —— 那种得换 LSQR(κ(A) 而非 κ(A)²)。
+/// d_j = Σᵢ wᵢ·sᵢⱼ² + λ:λ 本来就在 (AᵀWA+λI) 的对角上,行集里没出现过的轨道
+/// 也有 λ 兜底,不会除零。
+///
+/// 顺带打两行诊断,把"病到什么程度"变成可见的数:
+///   · 起始相对梯度 ‖r‖/‖AᵀWb‖ —— 热启动离最优还有多远(≈0 说明根本没得优化);
+///   · 对角跨度 max(d)/min(d) —— 尺度型病态的下界,预条件能压掉的正是这部分。
+fn solvePcg(alloc: std.mem.Allocator, rows: []const Row, x: []f32, lambda: f32, max_iter: u32, verbose: bool) !void {
+    const n = x.len;
+    if (rows.len == 0) return;
+    const xd = try alloc.alloc(f64, n);
+    const r = try alloc.alloc(f64, n);
+    const z = try alloc.alloc(f64, n);
+    const p = try alloc.alloc(f64, n);
+    const ap = try alloc.alloc(f64, n);
+    const d = try alloc.alloc(f64, n);
+    const bv = try alloc.alloc(f64, n);
+    const best = try alloc.alloc(f64, n);
+    const cbuf = try alloc.alloc(f64, rows.len);
+    for (0..n) |i| xd[i] = @floatCast(x[i]);
+
+    // 对角(含 λ)+ AᵀWb 一趟算齐
+    @memset(d, @as(f64, lambda));
+    @memset(r, 0);
+    @memset(bv, 0);
+    for (rows) |row| {
+        const wt: f64 = @as(f64, row.w) * @as(f64, row.t);
+        var k: usize = 0;
+        while (k < row.n) : (k += 1) {
+            const a: f64 = @floatFromInt(row.s[k]);
+            const j = row.o[k];
+            d[j] += @as(f64, row.w) * a * a;
+            const v = a * wt;
+            r[j] += v;
+            bv[j] += v;
+        }
+    }
+    mulAtA(rows, xd, ap, cbuf);
+    for (0..n) |i| r[i] -= ap[i] + @as(f64, lambda) * xd[i];
+
+    var dmin: f64 = std.math.inf(f64);
+    var dmax: f64 = 0;
+    for (d) |v| {
+        if (v < dmin) dmin = v;
+        if (v > dmax) dmax = v;
+    }
+    if (verbose) {
+        const bnorm = @sqrt(dot(bv, bv));
+        say("    起始相对梯度 {e:.2} · 对角跨度 {e:.1}(min {e:.2})", .{
+            @sqrt(dot(r, r)) / @max(bnorm, 1e-300),
+            dmax / @max(dmin, 1e-300),
+            dmin,
+        });
+    }
+
+    @memcpy(best, xd);
+    for (0..n) |i| {
+        z[i] = r[i] / d[i];
+        p[i] = z[i];
+    }
+    var rz = dot(r, z);
+    var rs = dot(r, r);
+    var best_rs = rs;
+    const rs0 = if (rs > 0) rs else 1e-300;
+    var it: u32 = 0;
+    while (it < max_iter) {
+        mulAtA(rows, p, ap, cbuf);
+        const denom = dot(p, ap);
+        if (!(denom > 0) or !std.math.isFinite(denom)) break;
+        const alpha = rz / denom;
+        for (0..n) |i| {
+            xd[i] += alpha * p[i];
+            r[i] -= alpha * ap[i];
+        }
+        const rs2 = dot(r, r);
+        it += 1;
+        if (rs2 < best_rs) {
+            best_rs = rs2;
+            @memcpy(best, xd);
+        }
+        if (rs2 <= 1e-26 * rs0) break;
+        if (!(rs2 < rs * 1e6)) break; // 发散保护:回退到 best(与 solveCg 同款)
+        for (0..n) |i| z[i] = r[i] / d[i];
+        const rz2 = dot(r, z);
+        const beta = rz2 / rz;
+        for (0..n) |i| p[i] = z[i] + beta * p[i];
+        rz = rz2;
+        rs = rs2;
+    }
+    for (0..n) |i| x[i] = @floatCast(best[i]);
+    if (verbose) {
+        say("    PCG {d} 次迭代 · 残差²/初值 {e:.3}", .{ it, best_rs / rs0 });
+    }
+}
+
+/// **LSQR**(Paige–Saunders):直接在最小二乘系统上跑 Golub-Kahan 双对角化,
+/// 条件数是 κ(A) 而不是正规方程的 κ(A)² —— 这是"相关型病态"(盘面越满、
+/// 38 张表越近线性相关)的正解,>34 区段 CG 停滞就卡在这里。
+/// 解 min Σᵢ wᵢ(aᵢ·x − tᵢ)² + λ‖x‖²:把 √λ·I 当增广行挂进矩阵,对
+/// B=[√W·A; √λ·I] 解 Bz = [√W·(b−Ax₀); −√λ·x₀](热启动 x₀ 折进右端),
+/// x = x₀ + z。与 CG 共用同一份稀疏行与岭语义,两趟扫描(行点积 / Aᵀ 累加)。
+fn solveLsqr(alloc: std.mem.Allocator, rows: []const Row, x: []f32, lambda: f32, max_iter: u32, verbose: bool) !void {
+    const n = x.len;
+    if (rows.len == 0) return;
+    const m = rows.len;
+    const x0 = try alloc.alloc(f64, n);
+    for (0..n) |i| x0[i] = @floatCast(x[i]);
+    const sqw = try alloc.alloc(f64, m); // √wᵢ(样本权重开方后就是增广矩阵的行缩放)
+    for (rows, 0..) |row, i| sqw[i] = @sqrt(@as(f64, row.w));
+    const damp = @sqrt(@as(f64, lambda));
+
+    const u_r = try alloc.alloc(f64, m); // u 的"数据行"分量
+    const u_t = try alloc.alloc(f64, n); // u 的"岭行"分量
+    const v = try alloc.alloc(f64, n);
+    const btu = try alloc.alloc(f64, n); // Bᵀ·u 的缓冲:⚠ 不能原地累加进 v 再减 β·v
+    //   —— 那会把"新累加值"当"旧方向"减掉,B 与 Bᵀ 从此不再伴随,LSQR 产出垃圾
+    const w = try alloc.alloc(f64, n);
+    const zv = try alloc.alloc(f64, n); // 解增量 z
+    const best = try alloc.alloc(f64, n);
+
+    // c = [√W(b − A x₀); −√λ·x₀],u = c/‖c‖(z=0 的相对残差恒为 1)
+    var cnorm: f64 = 0;
+    for (rows, 0..) |row, i| {
+        var ax: f64 = 0;
+        var k: usize = 0;
+        while (k < row.n) : (k += 1) ax += @as(f64, @floatFromInt(row.s[k])) * x0[row.o[k]];
+        u_r[i] = sqw[i] * (@as(f64, row.t) - ax);
+        cnorm += u_r[i] * u_r[i];
+    }
+    for (0..n) |j| {
+        u_t[j] = -damp * x0[j];
+        cnorm += u_t[j] * u_t[j];
+    }
+    const c0 = @sqrt(cnorm);
+    if (c0 > 0) {
+        for (u_r) |*e| e.* /= c0;
+        for (u_t) |*e| e.* /= c0;
+    }
+    // v = Bᵀu/‖v‖
+    @memset(btu, 0);
+    for (rows, 0..) |row, i| {
+        var k: usize = 0;
+        while (k < row.n) : (k += 1) btu[row.o[k]] += sqw[i] * @as(f64, @floatFromInt(row.s[k])) * u_r[i];
+    }
+    for (0..n) |j| btu[j] += damp * u_t[j];
+    @memcpy(v, btu);
+    var alpha = @sqrt(dot(v, v));
+    if (alpha == 0) return; // 右端为零:热启动已是精确解
+    for (v) |*e| e.* /= alpha;
+
+    var rhobar = alpha;
+    var phibar = c0;
+    var csprod: f64 = 1; // 已累积的余弦积:‖Bz−c‖ 的估计 = phibar × csprod
+    @memcpy(w, v);
+    @memset(zv, 0);
+    @memset(best, 0); // best 增量 = 0,即热启动本身
+    var best_phi = c0;
+
+    var it: u32 = 0;
+    while (it < max_iter) : (it += 1) {
+        // u ← B·v − α·u,归一
+        for (rows, 0..) |row, i| {
+            var av: f64 = 0;
+            var k: usize = 0;
+            while (k < row.n) : (k += 1) av += @as(f64, @floatFromInt(row.s[k])) * v[row.o[k]];
+            u_r[i] = sqw[i] * av - alpha * u_r[i];
+        }
+        for (0..n) |j| u_t[j] = damp * v[j] - alpha * u_t[j];
+        const beta = @sqrt(dot(u_r, u_r) + dot(u_t, u_t));
+        if (!std.math.isFinite(beta) or beta == 0) break;
+        for (u_r) |*e| e.* /= beta;
+        for (u_t) |*e| e.* /= beta;
+
+        // v ← Bᵀ·u − β·v,归一
+        @memset(btu, 0);
+        for (rows, 0..) |row, i| {
+            var k: usize = 0;
+            while (k < row.n) : (k += 1) btu[row.o[k]] += sqw[i] * @as(f64, @floatFromInt(row.s[k])) * u_r[i];
+        }
+        for (0..n) |j| {
+            btu[j] += damp * u_t[j];
+            v[j] = btu[j] - beta * v[j];
+        }
+        const an = @sqrt(dot(v, v));
+        if (!std.math.isFinite(an) or an == 0) break;
+        for (v) |*e| e.* /= an;
+        alpha = an;
+
+        // Givens 旋转消 β,更新解与方向 w
+        const rho = @sqrt(rhobar * rhobar + beta * beta);
+        if (!std.math.isFinite(rho) or rho == 0) break;
+        const cs = rhobar / rho;
+        const sn = beta / rho;
+        const theta = sn * alpha;
+        rhobar = -cs * alpha;
+        const phi = cs * phibar;
+        phibar = sn * phibar;
+        const tstep = phi / rho;
+        for (0..n) |j| {
+            zv[j] += tstep * w[j];
+            w[j] = v[j] - (theta / rho) * w[j];
+        }
+        if (!std.math.isFinite(phibar)) break;
+        csprod *= @abs(cs);
+        const r_est = phibar * csprod;
+        if (r_est < best_phi) {
+            best_phi = r_est;
+            @memcpy(best, zv);
+        }
+        if (r_est <= 1e-12 * @max(c0, 1e-300)) break; // 相对残差到 1e-12,机器精度了
+    }
+    for (0..n) |i| x[i] = @floatCast(x0[i] + best[i]);
+    if (verbose) {
+        say("    LSQR {d} 次迭代 · 相对残差 → {e:.3}", .{ it, best_phi / @max(c0, 1e-300) });
     }
 }
 
@@ -879,6 +1108,12 @@ pub fn main(init: std.process.Init) !void {
             cfg.seed = try std.fmt.parseInt(u64, v, 0);
         } else if (std.mem.eql(u8, k, "--threads")) {
             cfg.threads = try std.fmt.parseInt(u32, v, 10);
+        } else if (std.mem.eql(u8, k, "--solver")) {
+            if (!std.mem.eql(u8, v, "cg") and !std.mem.eql(u8, v, "pcg") and !std.mem.eql(u8, v, "lsqr")) {
+                say("✗ --solver 只认 lsqr / pcg / cg,得到:{s}", .{v});
+                return usage();
+            }
+            cfg.solver = v;
         } else if (std.mem.eql(u8, k, "--out")) {
             cfg.out = v;
         } else if (std.mem.eql(u8, k, "--ref-out")) {
@@ -1040,7 +1275,13 @@ pub fn main(init: std.process.Init) !void {
             if (rp.len == 0) continue;
             const lam = cfg.mu * diagMean(rp);
             say("  相位 {d}:行 {d} · 岭 λ {d:.4} · 起始 MSE {d:.3}", .{ ph, rp.len, lam, mse(rp, xs[ph]) });
-            try solveCg(arena, rp, xs[ph], lam, cfg.cg, true);
+            if (std.mem.eql(u8, cfg.solver, "cg")) {
+                try solveCg(arena, rp, xs[ph], lam, cfg.cg, true);
+            } else if (std.mem.eql(u8, cfg.solver, "pcg")) {
+                try solvePcg(arena, rp, xs[ph], lam, cfg.cg, true);
+            } else {
+                try solveLsqr(arena, rp, xs[ph], lam, cfg.cg, true);
+            }
         }
         const t3 = nanos();
         {
@@ -1136,8 +1377,8 @@ fn usage() void {
     say(
         \\用法:train [--games=N] [--depth=N] [--depth0=N] [--endgame=N] [--open=N]
         \\            [--iters=N] [--cgi=N] [--mu=F] [--wout=F] [--wboot=F]
-        \\            [--wexact=F] [--ab=N] [--seed=N] [--threads=N] [--out=path]
-        \\            [--ref-out=path] [--load=path] [--no-ab]
+        \\            [--wexact=F] [--ab=N] [--seed=N] [--threads=N] [--solver=cg|pcg]
+        \\            [--out=path] [--ref-out=path] [--load=path] [--no-ab]
         \\
         \\  --games   每轮自对弈局数(默认 300)
         \\  --depth   第 1 轮起的自对弈深度(默认 6)
@@ -1153,6 +1394,7 @@ fn usage() void {
         \\  --ab      训练后 A/B 成对局数(默认 40)
         \\  --threads 自对弈线程数(默认 0 = 逻辑核数)。每局的随机流与置换表都
         \\            按局独立派生/清空,所以结果与线程数无关,只影响速度
+        \\  --solver  正规方程求解器:lsqr(默认,κ(A))/ pcg(Jacobi 预条件)/ cg(基线)
         \\  --out     权重落盘路径(默认 src/zig/weights.bin)
         \\  --ref-out 额外落一本**对照书**:同一个 f32 权重、但用起始书那套定标。
         \\            两本只差定标 ⇒ 对打即可把"自动定标值多少"隔离出来

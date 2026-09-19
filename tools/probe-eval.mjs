@@ -64,8 +64,12 @@ for (let ph = 0; ph < PHASES; ph++) {
 }
 
 const POW3 = [1, 3, 9, 27, 81, 243, 729, 2187, 6561];
-// 与 pattern.zig phaseOf 同一条公式:≤34 → 0,≤50 → 1,更高 → 2
-const phaseOf = (discs) => (discs <= 34 ? 0 : discs <= 50 ? 1 : 2);
+// 与 pattern.zig phaseOf 同一条公式:均分 60 手,ceil 家族(f=0 并入第 0 档)
+const SPAN = 60 / PHASES;
+const phaseOf = (discs) => {
+  const f = Math.max(discs - 4, 0);
+  return Math.min(Math.floor(Math.max(f - 1, 0) / SPAN), PHASES - 1);
+};
 
 const lines = fs.readFileSync(dumpPath, 'utf8').split('\n').filter((l) => l.trim());
 let bad = 0, n = 0, maxAbs = 0;

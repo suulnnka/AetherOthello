@@ -56,7 +56,7 @@ console.log(`\n» zig-out/bin/othello.wasm → wasm/othello.wasm`);
 console.log(`  raw    ${String(raw.length).padStart(7)} B   ${kb(raw.length)}`);
 console.log(`  gzip   ${String(gz).padStart(7)} B   ${kb(gz)}`);
 console.log(`  brotli ${String(br).padStart(7)} B   ${kb(br)}`);
-  console.log('  (webos 体积闸门:gzip 后与 worker 胶水 chunk 求和 ≤ 35 KB —— 3 相位权重书 gzip 约 21.6 KB)');
+  console.log('  (webos 体积闸门:gzip 后与 worker 胶水 chunk 求和 ≤ 35 KB)');
 
 if (!process.argv.includes('--skip-probe')) {
   console.log('\n» 验证产物(node tools/probe-wasm.mjs wasm/othello.wasm)');
