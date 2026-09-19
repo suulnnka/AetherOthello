@@ -27,7 +27,7 @@ const MAGIC = 0x4f54484c; // 'OTHL'
 const blob = fs.readFileSync(blobPath);
 if (blob.length < 12) { console.log(`✗ blob 太短:${blob.length}`); process.exit(1); }
 if (blob.readUInt32LE(0) !== MAGIC) { console.log('✗ magic 不对'); process.exit(1); }
-if (blob[4] !== 3) { console.log('✗ version 不对(要 v3:6 相位,头 12+4×phases)'); process.exit(1); }
+if (blob[4] !== 3) { console.log('✗ version 不对(要 v3:每相位一个 scale,头 12+4×phases)'); process.exit(1); }
 const PHASES = blob[5];
 const HEADER = 12 + 4 * PHASES;
 if (blob.length !== HEADER + PHASES * ORBITS) {
@@ -64,11 +64,8 @@ for (let ph = 0; ph < PHASES; ph++) {
 }
 
 const POW3 = [1, 3, 9, 27, 81, 243, 729, 2187, 6561];
-// 与 pattern.zig phaseOf 同一条公式:kix4 的 1 基 ceil((子数−4)/10) − 1,f=0 并入相位 0
-const phaseOf = (discs) => {
-  const f = Math.max(discs - 4, 0);
-  return Math.min(Math.floor(Math.max(f - 1, 0) / 10), PHASES - 1);
-};
+// 与 pattern.zig phaseOf 同一条公式:≤34 → 0,≤50 → 1,更高 → 2
+const phaseOf = (discs) => (discs <= 34 ? 0 : discs <= 50 ? 1 : 2);
 
 const lines = fs.readFileSync(dumpPath, 'utf8').split('\n').filter((l) => l.trim());
 let bad = 0, n = 0, maxAbs = 0;

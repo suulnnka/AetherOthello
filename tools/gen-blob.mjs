@@ -12,9 +12,10 @@
  *   12+4×phases  i8 × phases × orbits
  *
  * 历史:v1 头 16 字节两相位共用 scale;v2 头 20 字节(2 相位各一 scale)。
- *   v3 = 6 相位(头 36 字节)。旧 v2 书用 --expand 按区间无损升级:
- *   新相位 0..2 ← 旧相位 0(子数 ≤34),新相位 3..5 ← 旧相位 1 —— 34 恰是
- *   6 档分界之一,所以展开后求值处处与原书相等,可直接当 6 档训练的初始。
+ *   v3 = 每相位一个 scale、相位数由头声明(当前引擎是 3 相位,头 24 字节)。
+ *   旧 v2 书用 --expand 按区间无损升级:新相位 0 ← 旧相位 0(子数 ≤34),
+ *   新相位 1/2 ← 旧相位 1 —— 34 恰是新分界之一,展开后求值处处与原书相等,
+ *   可直接当 3 档训练的初始。
  *   改这里必须同步改 src/zig/pattern.zig 的 BLOB_HEADER / BLOB_VERSION
  *   与 tools/probe-eval.mjs / tools/probe-wasm.mjs 的读法。
  *
@@ -59,13 +60,13 @@ function readBlob(path) {
 
 if (has('--zero')) {
   const out = argOf('--out', 'src/zig/weights.bin');
-  const scales = new Array(6).fill(1 / 64);
-  const n = writeBlob(out, scales, new Array(6 * ORBITS).fill(0));
-  console.log(`已生成零占位 blob:${out}  ${n} 字节(6 阶段 × ${ORBITS} 轨道 + 36 字节头)`);
+  const scales = new Array(3).fill(1 / 64);
+  const n = writeBlob(out, scales, new Array(3 * ORBITS).fill(0));
+  console.log(`已生成零占位 blob:${out}  ${n} 字节(3 阶段 × ${ORBITS} 轨道 + 24 字节头)`);
 } else if (has('--expand')) {
-  // v2(2 相位)→ v3(6 相位):相位 0..2 ← 旧相位 0,相位 3..5 ← 旧相位 1。
-  // 求值处处与原书相等(34 是 6 档分界之一),展开只改变"结构"不改变"棋力",
-  // 专门用来给 6 档训练做热启动初始。
+  // v2(2 相位)→ v3(3 相位):相位 0 ← 旧相位 0,相位 1/2 ← 旧相位 1。
+  // 求值处处与原书相等(34 是新分界之一),展开只改变"结构"不改变"棋力",
+  // 专门用来给 3 档训练做热启动初始。
   const inPath = argOf('--in', 'src/zig/weights.bin');
   const out = argOf('--out', inPath);
   const r = readBlob(inPath);
@@ -74,14 +75,15 @@ if (has('--zero')) {
     process.exit(1);
   }
   const [s0, s1] = r.scales;
-  const scales = [s0, s0, s0, s1, s1, s1];
-  const data = new Array(6 * ORBITS);
+  const scales = [s0, s1, s1];
+  const src = [0, 1, 1]; // 新相位 p ← 旧相位 src[p]
+  const data = new Array(3 * ORBITS);
   for (let o = 0; o < ORBITS; o++) {
-    for (let p = 0; p < 6; p++) data[p * ORBITS + o] = r.data[(p < 3 ? 0 : 1) * ORBITS + o];
+    for (let p = 0; p < 3; p++) data[p * ORBITS + o] = r.data[src[p] * ORBITS + o];
   }
   const n = writeBlob(out, scales, data);
-  console.log(`✓ v2 → v3 展开:${out}  ${r.bytes} → ${n} 字节 · scale ${s0.toFixed(6)}×3 / ${s1.toFixed(6)}×3`);
-  console.log('  相位 0..2 ← 旧相位 0,相位 3..5 ← 旧相位 1(34 子仍是分界,求值处处相等)');
+  console.log(`✓ v2 → v3 展开:${out}  ${r.bytes} → ${n} 字节 · scale ${s0.toFixed(6)} / ${s1.toFixed(6)}×2`);
+  console.log('  相位 0 ← 旧相位 0,相位 1/2 ← 旧相位 1(34 子仍是分界,求值处处相等)');
 } else if (has('--stat')) {
   const inPath = argOf('--in', 'src/zig/weights.bin');
   const { version, phases, orbits, scales, data, bytes } = readBlob(inPath);
