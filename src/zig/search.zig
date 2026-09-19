@@ -16,6 +16,7 @@ const std = @import("std");
 const rules = @import("rules.zig");
 const pattern = @import("pattern.zig");
 const stability = @import("stability.zig");
+const endgame = @import("endgame.zig");
 
 pub const INF: f32 = 1e30;
 
@@ -182,6 +183,14 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
     if (node_limit != 0 and nodes > node_limit) {
         aborted = true;
         return 0;
+    }
+
+    // ≤7 空:尾部快速路径 —— 不查 TT、不做排序,象限奇偶分流 + last4~1 专用函数。
+    // exact 求解里 depth 恒 ≥ 空格数(endgame 分支给 +2 余量),不会误入。
+    if (exact) {
+        if (64 - b.discs() <= endgame.END_FAST_EMPTIES) {
+            return endgame.endFast(b, alpha_in, beta_in, false);
+        }
     }
 
     var alpha = alpha_in;
