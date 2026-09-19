@@ -598,7 +598,18 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
     var res: Result = .{};
     var d: u32 = 2;
     const top = @min(depth_max, empties + 2);
-    while (d <= top) : (d += 2) {
+    if (top >= 8) {
+        // ⑤b 三段阶梯 {top-4, top-2, top}:排序补项(⑤)之后,内部节点有了
+        // 像样的先验排序,by-2 全阶梯的早期轮次只剩 TT 预热价值,不值 10~20%
+        // 的节点(Egaroucid 同为分段预搜)。浅档(top < 8)保持全阶梯,反正跑不深。
+        for ([_]u32{ top -| 4, top -| 2, top }) |dd| {
+            if (dd < 2) continue;
+            const r = rootSearch(b, @intCast(dd), false, &order, &rv) catch break;
+            if (aborted) break;
+            res = r;
+            res.nodes = nodes;
+        }
+    } else while (d <= top) : (d += 2) {
         const r = rootSearch(b, @intCast(d), false, &order, &rv) catch break;
         if (aborted) break;
         res = r;
