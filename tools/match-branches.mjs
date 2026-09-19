@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ============================================================
- * 两条分支**对打** —— 让 main(JS 参照)与 zig(Zig + wasm)互相下整局,看棋力差。
+ * 两条分支**对打** —— 让 main(Zig + wasm)与 legacy_js(JS 参照)互相下整局,看棋力差。
  *
  * 为什么不能只看 tools/compare-branches.mjs:那只回答"同一个局面各挑哪一步"。
  * 评分/节点数/耗时都不是棋力 —— 一个引擎可能更快更深却下得更差。棋力只有**对打**
@@ -12,7 +12,7 @@
  *     两边只被当成"给局面返回一手"的黑箱。
  * 最后这条正是「契约一致」换来的能力:没有同一份接口,这两套实现没法同台。
  *
- * 用法:node tools/match-branches.mjs [--branch zig] [--pairs 60] [--open 6]
+ * 用法:node tools/match-branches.mjs [--branch legacy_js] [--pairs 60] [--open 6]
  *        [--depth 6|none] [--levels A:B] [--seed 1] [--keep] [--quiet]
  *      --depth  对弈深度,**默认 6 层、两边一致** —— 跨实现比棋力必须把深度钉住,
  *               否则比的是"一边 d10 一边 d8"。传 none 退回各用各的档位。
@@ -36,7 +36,7 @@ const has = (n) => argv.includes(n);
 const git = (args, cwd = ROOT) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
 const CUR = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-const OTHER = argOf('--branch', CUR === 'zig' ? 'main' : 'zig');
+const OTHER = argOf('--branch', CUR === 'legacy_js' ? 'main' : 'legacy_js');
 const PAIRS = Number(argOf('--pairs', 60));
 const OPEN = Number(argOf('--open', 6));
 const SEED = Number(argOf('--seed', 1));
@@ -158,10 +158,10 @@ if (!fs.existsSync(path.join(wt, '.git'))) {
   execFileSync('git', ['checkout', '--force', OTHER], { cwd: wt, stdio: 'inherit' });
 }
 ensureFiles(wt, ['src/worker.js', 'src/levels.js', 'src/engine.js']);
-if (OTHER === 'zig' || CUR === 'zig') {
-  const zigDir = OTHER === 'zig' ? wt : ROOT;
-  if (!fs.existsSync(path.join(zigDir, 'wasm', 'othello.wasm'))) {
-    throw new Error(`zig 通道缺 ${path.join(zigDir, 'wasm', 'othello.wasm')} —— 先在引擎仓跑 node tools/build-wasm.mjs`);
+if (OTHER === 'main' || CUR === 'main') {
+  const wasmDir = OTHER === 'main' ? wt : ROOT;
+  if (!fs.existsSync(path.join(wasmDir, 'wasm', 'othello.wasm'))) {
+    throw new Error(`main(wasm 通道)缺 ${path.join(wasmDir, 'wasm', 'othello.wasm')} —— 先在引擎仓跑 node tools/build-wasm.mjs`);
   }
 }
 

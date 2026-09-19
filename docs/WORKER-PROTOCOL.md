@@ -1,11 +1,11 @@
-# 引擎 Worker 协议(main 与 zig 两个分支共用的接口契约)
+# 引擎 Worker 协议(main 与 legacy_js 两个分支共用的接口契约)
 
 这个仓库有两个**实现**,一份**接口**:
 
 | 分支 | 实现 | 说明 |
 |---|---|---|
-| `main` | `src/engine.js`(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解) | 参照实现 / 历史版本。研究、基准、对拍都靠它 |
-| `zig` | `src/zig/*` → `othello.wasm`(Zig,原生 u64 位棋盘) | 线上跑的版本(webos 黑白棋应用) |
+| `main` | `src/zig/*` → `othello.wasm`(Zig,原生 u64 位棋盘) | 线上跑的版本(webos 黑白棋应用) |
+| `legacy_js` | `src/engine.js`(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解) | 参照实现 / 历史版本。研究、基准、对拍都靠它 |
 
 **换实现不换接口**:UI、浏览器探针、对比脚本都只认下面这份契约,所以两条分支可以
 直接互换而不动上层代码 —— 这是「之后方便对比」的前提。
@@ -118,8 +118,8 @@ UI 不需要它 —— UI 要的是"这一档的完整体验",不是一个孤立
 worker 收到 `state` 不思考、不加载引擎。
 
 两个分支都必须实现本消息且结果一致(同一局面的各字段逐项相等):
-zig 分支当前是 worker 内的轻量 JS 位板遍历(wasm 暂无 legal 导出,等 zig 工具链
-可用可下沉为 wasm 导出),main 分支用 engine.js 的 genLegal + 位计数。
+main(wasm 通道)当前是 worker 内的轻量 JS 位板遍历(wasm 暂无 legal 导出,等 zig 工具链
+可用可下沉为 wasm 导出),legacy_js 分支用 engine.js 的 genLegal + 位计数。
 `tools/probe-contract.mjs` 里有对拍用例。
 
 位板编码:`bit = row * 8 + col`(`row 0` = 最上面一行),`lo` 是 bit 0..31、`hi` 是 32..63。

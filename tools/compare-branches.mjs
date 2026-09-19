@@ -2,7 +2,7 @@
 /* ============================================================
  * 两条分支并排对比 —— 同一批局面、同一批档位下标,两个实现各跑一遍,看差异。
  *
- * 存在意义:仓库里 `main`(JS 参照实现)与 `zig`(Zig + wasm)共用同一份 Worker
+ * 存在意义:仓库里 `main`(Zig + wasm)与 `legacy_js`(JS 参照实现)共用同一份 Worker
  * 契约(docs/WORKER-PROTOCOL.md),所以「换个实现再跑一遍」应该是零成本的 ——
  * 这个脚本就是那条零成本路径,顺便替契约守门:
  *   · 先核对三个共享文件在两条分支上**逐字节一致**(不一致 = 契约已破,直接判负)
@@ -16,7 +16,7 @@
  *
  * 当前分支就地跑(不动工作区);另一条分支用 git worktree 拉到临时目录跑。
  *
- * 用法:node tools/compare-branches.mjs [--branch zig] [--levels 1,2] [--keep]
+ * 用法:node tools/compare-branches.mjs [--branch legacy_js] [--levels 1,2] [--keep]
  *      --levels 缺省用当前分支自报的 default
  * 退出码:0 契约两边都过 / 1 有契约失败或共享文件不一致
  * ============================================================ */
@@ -33,7 +33,7 @@ const argOf = (n, d) => { const i = argv.indexOf(n); return i >= 0 && argv[i + 1
 const git = (args, cwd = ROOT) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
 const CUR = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-const OTHER = argOf('--branch', CUR === 'zig' ? 'main' : 'zig');
+const OTHER = argOf('--branch', CUR === 'legacy_js' ? 'main' : 'legacy_js');
 const ASKED = argv.includes('--levels') ? argOf('--levels', '').split(',').map(Number) : null;
 const KEEP = argv.includes('--keep');
 
@@ -77,10 +77,10 @@ if (!fs.existsSync(path.join(wt, '.git'))) {
   execFileSync('git', ['checkout', '--force', OTHER], { cwd: wt, stdio: 'inherit' });
 }
 ensureFiles(wt, ['src/worker.js', 'src/levels.js', 'src/engine.js']);
-if (OTHER === 'zig' || CUR === 'zig') {
-  const zigDir = OTHER === 'zig' ? wt : ROOT;
-  const wasm = path.join(zigDir, 'wasm', 'othello.wasm');
-  if (!fs.existsSync(wasm)) throw new Error(`zig 通道缺 ${wasm} —— 先在引擎仓跑 node tools/build-wasm.mjs`);
+if (OTHER === 'main' || CUR === 'main') {
+  const wasmDir = OTHER === 'main' ? wt : ROOT;
+  const wasm = path.join(wasmDir, 'wasm', 'othello.wasm');
+  if (!fs.existsSync(wasm)) throw new Error(`main(wasm 通道)缺 ${wasm} —— 先在引擎仓跑 node tools/build-wasm.mjs`);
 }
 console.log(`  · 当前分支就地跑 ${ROOT}\n  · 另一分支 worktree ${wt}`);
 

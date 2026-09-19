@@ -3,17 +3,18 @@
 纯 JavaScript 黑白棋(Reversi / Othello)AI 引擎:零依赖、无 DOM、浏览器与 Node 通用。
 从 [WebOS](<https://github.com/suulnnka/AetherWebOS>)(纯前端网页操作系统)的黑白棋应用中抽离而来,全部自研。
 
-本分支(`zig`)同时装着两套引擎 —— 分工与接口见下一节「两条分支」。
+本分支(`main`)同时装着两套引擎 —— 分工与接口见下一节「两条分支」。
 
 **在线体验:** 打开 <https://suulnnka.github.io/AetherWebOS/> 启动「黑白棋」应用。
-(线上跑的是 JS 通道;Zig/wasm 通道先在本地 `npm run build:wasm` 构建再进 webos 构建。)
+(线上跑的就是 wasm 通道;`wasm/othello.wasm` 是入库产物,改引擎或权重后
+本地重跑 `npm run build:wasm` 再提交。)
 
 ## 两条分支:一个接口,两份实现
 
-- `main` —— `src/engine.js`(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解),作为
+- `main` —— 在 legacy_js 的基础上多一份 Zig 实现(`src/zig/*` → `wasm/othello.wasm`,
+  原生 u64 位棋盘 + 38 张模式表评估);WebOS 黑白棋应用线上跑的是这套。
+- `legacy_js` —— `src/engine.js`(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解),作为
   **参照实现 / 历史版本**保留。
-- `zig` —— 在它的基础上多一份 Zig 实现(`src/zig/*` → `wasm/othello.wasm`,原生
-  u64 位棋盘 + 38 张模式表评估);WebOS 黑白棋应用线上跑的是这套。
 
 两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`),所以上层(UI、浏览器探针、
 对比脚本)换实现不用改代码 —— 这也是两手准备的意义:同一个局面,两条分支的结果可以
@@ -91,7 +92,7 @@ node bench/duel.mjs bench/bench.mjs <你的版本>.mjs 200 5 4
 
 ## Zig 通道(原生 u64 位棋盘 → wasm)
 
-`zig` 分支上另有一条完全独立的引擎通道:规则、评估、搜索全部用 Zig 重写,
+`main` 分支上另有一条完全独立的引擎通道:规则、评估、搜索全部用 Zig 重写,
 编译成 `othello.wasm` 跑在浏览器 Worker 里。**两套实现互不依赖**:JS 那套留着当
 参照实现(探针拿它跟 Zig 对拍),webos 的对弈路径走 Zig 那套。
 
