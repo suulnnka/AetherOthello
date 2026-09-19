@@ -4,9 +4,11 @@
  * 契约见 docs/WORKER-PROTOCOL.md,与 zig 分支的 src/worker.js 完全一致:
  *   ping                  → { type:'pong', tag, engine }
  *   levels                → { type:'levels', tag, engine, default, levels:[...] }
- *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, empties }
+ *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, depth?, empties }
  *                         → { id, move, score, depth, depthMax, exact, nodes,
  *                             empties, ms, engine }
+ *                           depth 可选:覆盖该档位的深度上限 —— 标定与跨实现
+ *                           对打要"同深度比棋力"时用,缺省完全不变
  * 换实现不换接口 —— UI、探针、对比脚本都不用改。
  * 难度表由**本分支自己**声明(src/levels.js),两套实现的档位参数不通用,所以
  * UI 一律发 {type:'levels'} 来问,不 import 那张表。
@@ -72,7 +74,14 @@ self.onmessage = async (e) => {
   }
   if (d.type !== 'think') return;
 
-  const lv = LEVELS[d.level] ?? LEVELS[DEFAULT_LEVEL] ?? LEVELS[0];
+  const lvBase = LEVELS[d.level] ?? LEVELS[DEFAULT_LEVEL] ?? LEVELS[0];
+  /* `depth` 是**可选覆盖**:只替换该档位的深度上限,end / budget 照旧取档位。
+   * 给标定与跨实现对打用 —— 两边难度表本来就不同(zig 默认 d10、这边默认 d8),
+   * 想"同深度比棋力"就必须能从外面把深度钉住,否则比的是两套参数而不是两种实现。
+   * 整个 lv 会交给 engine.js 的 think(),所以浅拷贝换掉 depth 即可,
+   * 回包里的 depthMax 也就自动反映覆盖值。缺省时行为一字不变。 */
+  const depthMax = Number.isFinite(d.depth) ? d.depth : lvBase.depth;
+  const lv = depthMax === lvBase.depth ? lvBase : { ...lvBase, depth: depthMax };
   const board = toArray(d.own[0], d.own[1], d.opp[0], d.opp[1]);
 
   /* 无合法着法:引擎会直接返回 null(还没有任何进度回调可退回),而契约要求
