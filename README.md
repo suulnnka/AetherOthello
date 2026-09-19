@@ -105,8 +105,11 @@ node bench/duel.mjs bench/bench.mjs <你的版本>.mjs 200 5 4
   35~54 尾中段独占更多数据)。二进制里只有 3×9,475 = 28,425 字节权重 + 24 字节头
 - **搜索**:PVS 负极大 + 迭代加深 + 置换表(中局/残局共表,`EXACT_SALT` 隔开)
   + 残局奇偶排序 + 残局完全求解;**难度按节点预算**而不是墙钟时间
-- **训练**:`src/zig/train.zig` 自对弈 + 稀疏最小二乘(共轭梯度,全程 f64)。
-  评估是线性的,所以不需要 9,475² 的正规矩阵,只需稀疏两趟扫描
+- **训练**:`src/zig/train.zig` 自对弈 + 稀疏最小二乘(LSQR,共轭梯度已退役)。
+  评估是线性的,所以不需要 9,475² 的正规矩阵,只需稀疏两趟扫描。
+  另有**监督模式**(推荐):`--data=<Egaroucid Train Data>` 直接对
+  2,551 万条「局面 + lv.17 终局子差」标注做最小二乘,163 秒完赛,棋力
+  远超同等成本的自对弈(实测 A/B +11.3±1.3 子)。
 
 ```bash
 npm run build:wasm               # zig build → wasm/othello.wasm(入库产物)+ 自动验证
@@ -123,6 +126,13 @@ node tools/probe-exact.mjs       # 残局精确解:与 JS 参照实现逐局面�
 `zig-out/` 是 gitignore 的中间产物,不能当交付路径。**改了权重或引擎代码就必须重跑
 `npm run build:wasm` 并提交** —— 它会顺带核对 wasm 里的权重书头部与
 `src/zig/weights.bin` 是否一致,忘记重建的那次会被它拦住。
+
+## 致谢
+
+当前权重书使用 **Egaroucid**(作者:Takuto Yamana)公开的训练数据训练:
+[Training Data by Egaroucid 7.4.0 lv.17 & 7.5.1 lv.17](https://www.egaroucid.nyanyan.dev/en/technology/train-data/)
+—— "I used Egaroucid's self-play data for training my Othello AI"。
+该数据**禁止再分发**,因此不进本仓库;要复现训练请自行下载并放 `out/`。
 
 ## License
 

@@ -129,6 +129,12 @@ const Cfg = struct {
     /// 治"列相关型"病态)/ pcg(Jacobi 预条件,治"列尺度悬殊"型)/ cg(历史基线)。
     /// --cgi 控制迭代上限。
     solver: []const u8 = "lsqr",
+    /// 非空 ⇒ **外部标注数据模式**:不做自对弈,直接对每行
+    /// 「64 字符局面 + 行棋方视角终局子差」(Egaroucid Train Data 格式)做
+    /// 监督最小二乘。局外数据许可是"可用、禁再分发、需署名" ⇒ 文件放
+    /// out/(gitignored),别提交,README 记致谢。
+    data: []const u8 = "",
+    data_stride: u32 = 6, // 等距抽样 1/N(确定性):25.5M 行全装要 3.2GB,抽样后仍远超需要
     out: []const u8 = "src/zig/weights.bin",
     /// 非空 ⇒ 额外落一本**对照书**:同一个 f32 权重、但用**起始书那套定标**
     /// (先夹到 ±127·scale 再量化)。两本书只差定标 ⇒ 可以直接对打,
@@ -1114,6 +1120,10 @@ pub fn main(init: std.process.Init) !void {
                 return usage();
             }
             cfg.solver = v;
+        } else if (std.mem.eql(u8, k, "--data")) {
+            cfg.data = v;
+        } else if (std.mem.eql(u8, k, "--data-stride")) {
+            cfg.data_stride = try std.fmt.parseInt(u32, v, 10);
         } else if (std.mem.eql(u8, k, "--out")) {
             cfg.out = v;
         } else if (std.mem.eql(u8, k, "--ref-out")) {
@@ -1151,71 +1161,140 @@ pub fn main(init: std.process.Init) !void {
     // pattern.init(base) 已经把 orbit / sigma / orb_zero 建好了,evalFloat 要用。
     search.eval_u = &u;
 
+    // ── 外部标注数据模式(--data):不做自对弈,直接监督拟合 ──────────────
+    //    Egaroucid Train Data:每行 64 字符局面(a1..h8 行优先;X=行棋方、
+    //    O=对手、-=空)+ 空格 + 行棋方视角的终局子差估值(7.4.0/7.5.1 lv.17)。
+    //    ⚠ 许可:可用、**禁止再分发**、需署名 ⇒ 数据文件放 out/(gitignored)。
+    var data_buf: []const u8 = &.{};
+    const data_mode = cfg.data.len != 0;
+    if (data_mode) {
+        cfg.iters = 1; // 标签是静态的:一次拟合即整体最优,没有"轮"的概念
+        data_buf = try std.Io.Dir.cwd().readFileAlloc(gio, cfg.data, arena, .limited(4 << 30));
+        say("外部数据 {s}:{d} MB · 等距抽样 1/{d}", .{ cfg.data, data_buf.len >> 20, cfg.data_stride });
+    }
+
     // 行缓冲:每局 ≤ 60 手 × 2 行(引导 + 结果;精确行只占 1 行),每线程留余量。
-    // 汇拢后的总数不会超过 games×128 + T×512,再兜一点整。
-    const n_threads: usize = @max(@min(@as(usize, cfg.threads), @as(usize, cfg.games)), 1);
+    // 汇拢后的总数不会超过 games×128 + T×512,再兜一点整;数据模式按行数/stride 估。
+    const n_threads: usize = if (data_mode) 1 else @max(@min(@as(usize, cfg.threads), @as(usize, cfg.games)), 1);
     const per: u32 = @intCast((@as(usize, cfg.games) + n_threads - 1) / n_threads);
     const wcap: usize = @as(usize, per) * 128 + 512;
-    const max_rows = @as(usize, cfg.games) * 128 + n_threads * 512 + 4096;
+    const max_rows = if (data_mode)
+        data_buf.len / 66 / @as(usize, cfg.data_stride) + 4096
+    else
+        @as(usize, cfg.games) * 128 + n_threads * 512 + 4096;
     const rows = try arena.alloc(Row, max_rows);
     const q = try arena.alloc(u8, pattern.PHASES * pattern.ORBITS);
-    const workers = try arena.alloc(Worker, n_threads);
-    for (0..n_threads) |ti| {
-        const g0: u32 = @intCast(ti * per);
-        workers[ti] = .{
-            .g0 = g0,
-            .g1 = @min(g0 + per, cfg.games),
-            .rows = try arena.alloc(Row, wcap),
-            .log = try arena.alloc(Log, 80),
-            .cfg = cfg,
-        };
+    var workers: []Worker = &.{};
+    var threads: []std.Thread = &.{};
+    if (!data_mode) {
+        workers = try arena.alloc(Worker, n_threads);
+        for (0..n_threads) |ti| {
+            const g0: u32 = @intCast(ti * per);
+            workers[ti] = .{
+                .g0 = g0,
+                .g1 = @min(g0 + per, cfg.games),
+                .rows = try arena.alloc(Row, wcap),
+                .log = try arena.alloc(Log, 80),
+                .cfg = cfg,
+            };
+        }
+        threads = try arena.alloc(std.Thread, n_threads);
     }
-    const threads = try arena.alloc(std.Thread, n_threads);
     var n_rows: usize = 0; // 最后一轮的有效行数(④ 定标要用,见循环内赋值处)
 
     const t_all = nanos();
     for (0..cfg.iters) |iter| {
         const bootw: f32 = cfg.w_boot;
         const dply: u32 = if (iter == 0) cfg.depth0 else cfg.depth;
-        say("\n━━ 第 {d}/{d} 轮 · 深度 {d} · 引导权重 {d:.2} · {d} 线程 ━━", .{ iter + 1, cfg.iters, dply, bootw, n_threads });
-
-        // ① 自对弈 + 摊行(多线程;每局独立:自己的种子 + 自己的起始置换表)
-        const t0 = nanos();
-        const round_seed = cfg.seed +% @as(u64, iter) *% 0x9E37_79B9;
-        for (workers) |*w| {
-            w.seed = round_seed;
-            w.dply = dply;
-            w.boot_w = bootw;
-            w.n = 0;
-            w.dropped = 0;
-            w.plies = 0;
-            w.diff = 0;
-            w.failed = false;
+        if (data_mode) {
+            say("\n━━ 数据拟合 · 监督最小二乘(Egaroucid lv.17 标签)━━", .{});
+        } else {
+            say("\n━━ 第 {d}/{d} 轮 · 深度 {d} · 引导权重 {d:.2} · {d} 线程 ━━", .{ iter + 1, cfg.iters, dply, bootw, n_threads });
         }
-        for (0..n_threads) |ti| threads[ti] = try std.Thread.spawn(.{}, workerMain, .{&workers[ti]});
-        for (threads) |th| th.join();
-        // 汇拢:各线程的行搬到 rows 前部,统计量求和
+
+        const t0 = nanos();
+        var total: usize = 0;
+        var dropped: usize = 0;
         var tot_plies: u64 = 0;
         var black_diff: i64 = 0;
-        var dropped: usize = 0;
-        var total: usize = 0;
-        for (workers) |*w| {
-            if (w.failed) return error.SelfPlayFailed;
-            @memcpy(rows[total..][0..w.n], w.rows[0..w.n]);
-            total += w.n;
-            tot_plies += w.plies;
-            black_diff += w.diff;
-            dropped += w.dropped;
+        if (data_mode) {
+            // ① 解析外部数据 + 摊行(等距抽样,确定性:第 i 行取 i%stride==0)
+            var em = Emitter{ .rows = rows, .boot_w = 1.0 };
+            var ln: usize = 0;
+            var bad: usize = 0;
+            var pos: usize = 0;
+            const stride: usize = cfg.data_stride;
+            while (pos < data_buf.len) {
+                const nl = std.mem.indexOfScalarPos(u8, data_buf, pos, '\n') orelse data_buf.len;
+                var line = data_buf[pos..nl];
+                pos = nl + 1;
+                if (line.len > 0 and line[line.len - 1] == '\r') line = line[0 .. line.len - 1];
+                ln += 1;
+                if ((ln - 1) % stride != 0) continue;
+                if (line.len < 66 or line[64] != ' ') {
+                    bad += 1;
+                    continue;
+                }
+                var own: u64 = 0;
+                var opp: u64 = 0;
+                var ok = true;
+                for (line[0..64], 0..) |c, i| {
+                    if (c == 'X') {
+                        own |= @as(u64, 1) << @intCast(i);
+                    } else if (c == 'O') {
+                        opp |= @as(u64, 1) << @intCast(i);
+                    } else if (c != '-') {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (!ok) {
+                    bad += 1;
+                    continue;
+                }
+                const val = std.fmt.parseInt(i32, line[65..], 10) catch {
+                    bad += 1;
+                    continue;
+                };
+                em.add(.{ .own = own, .opp = opp }, @floatFromInt(val), 1.0);
+            }
+            total = em.n;
+            dropped = em.dropped;
+            say("  解析 {d} 行 · 训练行 {d} · 丢 {d}({d} 行格式异常)· {d:.1} s", .{ ln, total, dropped, bad, secs(t0) });
+        } else {
+            // ① 自对弈 + 摊行(多线程;每局独立:自己的种子 + 自己的起始置换表)
+            const round_seed = cfg.seed +% @as(u64, iter) *% 0x9E37_79B9;
+            for (workers) |*w| {
+                w.seed = round_seed;
+                w.dply = dply;
+                w.boot_w = bootw;
+                w.n = 0;
+                w.dropped = 0;
+                w.plies = 0;
+                w.diff = 0;
+                w.failed = false;
+            }
+            for (0..n_threads) |ti| threads[ti] = try std.Thread.spawn(.{}, workerMain, .{&workers[ti]});
+            for (threads) |th| th.join();
+            // 汇拢:各线程的行搬到 rows 前部,统计量求和
+            for (workers) |*w| {
+                if (w.failed) return error.SelfPlayFailed;
+                @memcpy(rows[total..][0..w.n], w.rows[0..w.n]);
+                total += w.n;
+                tot_plies += w.plies;
+                black_diff += w.diff;
+                dropped += w.dropped;
+            }
+            say("  自对弈 {d} 局 · 平均 {d} 手 · 黑子差均值 {d:.1} · {d} 行({d} 丢)· {d:.1} s",
+                .{
+                    cfg.games,
+                    tot_plies / cfg.games,
+                    @as(f64, @floatFromInt(black_diff)) / @as(f64, @floatFromInt(cfg.games)),
+                    total,
+                    dropped,
+                    secs(t0),
+                });
         }
-        say("  自对弈 {d} 局 · 平均 {d} 手 · 黑子差均值 {d:.1} · {d} 行({d} 丢)· {d:.1} s",
-            .{
-                cfg.games,
-                tot_plies / cfg.games,
-                @as(f64, @floatFromInt(black_diff)) / @as(f64, @floatFromInt(cfg.games)),
-                total,
-                dropped,
-                secs(t0),
-            });
 
         // ② 按相位分段(同一相位才是同一张表;**每个相位必须各解各的**)。
         //    计数 + 原地交换归位,不保序(最小二乘不看行序),一趟 O(n)。
@@ -1377,8 +1456,9 @@ fn usage() void {
     say(
         \\用法:train [--games=N] [--depth=N] [--depth0=N] [--endgame=N] [--open=N]
         \\            [--iters=N] [--cgi=N] [--mu=F] [--wout=F] [--wboot=F]
-        \\            [--wexact=F] [--ab=N] [--seed=N] [--threads=N] [--solver=cg|pcg]
-        \\            [--out=path] [--ref-out=path] [--load=path] [--no-ab]
+        \\            [--wexact=F] [--ab=N] [--seed=N] [--threads=N] [--solver=cg|pcg|lsqr]
+        \\            [--data=path --data-stride=N] [--out=path] [--ref-out=path]
+        \\            [--load=path] [--no-ab]
         \\
         \\  --games   每轮自对弈局数(默认 300)
         \\  --depth   第 1 轮起的自对弈深度(默认 6)
@@ -1395,6 +1475,9 @@ fn usage() void {
         \\  --threads 自对弈线程数(默认 0 = 逻辑核数)。每局的随机流与置换表都
         \\            按局独立派生/清空,所以结果与线程数无关,只影响速度
         \\  --solver  正规方程求解器:lsqr(默认,κ(A))/ pcg(Jacobi 预条件)/ cg(基线)
+        \\  --data    外部标注数据(Egaroucid Train Data 格式):监督拟合,不自对弈。
+        \\            许可:可用、禁再分发、需署名 —— 文件放 out/(gitignored)
+        \\  --data-stride 数据抽样 1/N(默认 6;25.5M 行全装内存要 3.2GB)
         \\  --out     权重落盘路径(默认 src/zig/weights.bin)
         \\  --ref-out 额外落一本**对照书**:同一个 f32 权重、但用起始书那套定标。
         \\            两本只差定标 ⇒ 对打即可把"自动定标值多少"隔离出来
