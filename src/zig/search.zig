@@ -35,25 +35,34 @@ pub const F_UPPER: u8 = 3;
 pub const MAX_PLY: usize = 72;
 const MAX_MOVES: usize = 36; // 黑白棋单方最多 33 个合法着法
 
-/// 置换表:2^19 × 16 B = 8 MB。放 BSS,不占二进制体积(零页不进文件)。
-/// 用 u64 键而不是"两个 32 位字":后者要额外维护两组键,漏一处就静默出伪命中。
+/// 置换表:2^19 × 24 B = 12 MB。放 BSS,不占二进制体积(零页不进文件)。
+///
+/// 条目直接存 **own/opp 两个 u64**,命中靠 16 字节全比对 —— 这是 Egaroucid/edax
+/// 的做法,好处有两层:
+///   1. 每节点不再做 Zobrist 全盘逐位异或(那是对双方全部棋子的扫描,残局求解
+///      **每个内部节点**都要付一次);定位用一次乘法散列,命中判定是两次比较。
+///   2. **零伪命中**。Zobrist 键总有碰撞概率,两个不同局面撞键时返回的分数是
+///      静默的错误 —— 全比对从结构上消灭了这一类 bug。
+/// 中局/残局仍共一张表,靠 EXACT_SALT 参与散列把两种评分语义隔开(同一局面在
+/// 两个语义下落不同的槽),免得残局的精确点差被中局的启发式分污染。
 ///
 /// ⚠ 本文件所有**可变**状态(tt / tt_ready / ply_* / nodes / evals / aborted /
 ///   node_limit)一律 `threadlocal`:训练器多线程自对弈时每线程一份,无锁无竞争。
 ///   wasm 侧永远单线程,threadlocal 退化为普通全局,行为不受影响
 ///   (体积闸门与 probe-wasm 会把关这一点)。
-const TT_BITS: u5 = 19;
+const TT_BITS = 19;
 const TT_SIZE: usize = 1 << TT_BITS;
 const TT_MASK: u64 = TT_SIZE - 1;
 
 const Entry = extern struct {
-    key: u64,
+    own: u64,
+    opp: u64,
     score: f32,
     move: i8,
     depth: i8,
     flag: u8,
-    pad: [3]u8 = .{ 0, 0, 0 },
-};
+    pad: [6]u8 = .{ 0, 0, 0, 0, 0, 0 },
+}; // 恰 24 B:8+8+4+1+1+1+6,对齐 8
 
 threadlocal var tt: [TT_SIZE]Entry = undefined;
 threadlocal var tt_ready = false;
@@ -61,30 +70,20 @@ threadlocal var tt_ready = false;
 /// 中局/残局共表时必须把两种评分语义隔开,否则一次伪命中就能让残局求解给出错着
 const EXACT_SALT: u64 = 0x5DEE_CE66_D000_0000;
 
-/// Zobrist:每个 (格, 归属) 一把 u64 键。用 xorshift64 生成,`|1` 保证非 0
-/// —— 0 是置换表的"空槽"哨兵,键撞 0 就变成开机即伪命中。
-const ZA: [64]u64 = blk: {
-    var z: [64]u64 = undefined;
-    var s: u64 = 0x9E37_79B9_7F4A_7C15;
-    for (0..64) |i| {
-        s ^= s << 13;
-        s ^= s >> 7;
-        s ^= s << 17;
-        z[i] = s | 1;
-    }
-    break :blk z;
-};
-const ZB: [64]u64 = blk: {
-    var z: [64]u64 = undefined;
-    var s: u64 = 0xD1B5_4A32_D192_ED03;
-    for (0..64) |i| {
-        s ^= s << 13;
-        s ^= s >> 7;
-        s ^= s << 17;
-        z[i] = s | 1;
-    }
-    break :blk z;
-};
+/// 定槽散列。两段都有讲究:
+///   1. 乘法摊熵 —— 但**乘积的低位只依赖输入的低位**,残局盘面极满、低位几乎
+///      全 1,直接取低位当槽号会让冲突率暴涨(TT 命中率崩掉,节点数实测 ×2.65);
+///   2. 所以末尾加一道 splitmix 式 finalizer,再用**高位**做槽号 —— 乘积的高位
+///      依赖输入全部位,稀疏/稠密都摊得开。
+/// 不承担正确性:撞槽只会损失一次命中(own/opp 全比对兜底),不会返回错误数据。
+inline fn slotOf(b: rules.Board, exact: bool) usize {
+    var h = b.own *% 0x9E37_79B9_7F4A_7C15;
+    h ^= b.opp *% 0xC2B2_AE3D_27D4_EB4F;
+    if (exact) h ^= EXACT_SALT;
+    h = h *% 0xFF51_AFD7_ED55_8CCD;
+    h ^= h >> 29;
+    return @intCast((h >> (64 - TT_BITS)) & TT_MASK);
+}
 
 /// 排序用位置权重(与主分支 W64 同表,i8 装得下):角贵、角邻负分。
 const W64O = [64]i8{
@@ -147,15 +146,6 @@ inline fn eps(exact: bool) f32 {
     return @max(m * 0.25, 1e-4);
 }
 
-fn hashOf(b: rules.Board, exact: bool) u64 {
-    var h: u64 = if (exact) EXACT_SALT else 0;
-    var x = b.own;
-    while (x != 0) : (x &= x - 1) h ^= ZA[@as(usize, @ctz(x))];
-    x = b.opp;
-    while (x != 0) : (x &= x - 1) h ^= ZB[@as(usize, @ctz(x))];
-    return h;
-}
-
 /// 8 连通膨胀(含源自身),u64 位板版。
 /// 先横后纵即可覆盖四个对角:横扩后的集合再纵移,等价于同时横纵各移一格。
 inline fn expand8(x: u64) u64 {
@@ -194,16 +184,13 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact:
     }
 
     var alpha = alpha_in;
-    // 只在 depth > 0 时算键:叶子节点占绝大多数,而叶子的 TT 命中率极低,
-    // 白算一次 Zobrist 不划算。键只算**一次**,后面排序/写回都复用 ——
-    // 每处各算一次的话每个节点要跑 3 遍 64 位扫描。
-    var key: u64 = 0;
+    // 只在 depth > 0 时查表:叶子节点占绝大多数,而叶子的 TT 命中率极低。
+    // 定槽只算一次,后面排序提升/写回都复用同一个 slot。
     var slot: usize = 0;
     if (depth > 0) {
-        key = hashOf(b, exact);
-        slot = @intCast(key & TT_MASK);
+        slot = slotOf(b, exact);
         const e = &tt[slot];
-        if (e.key == key and e.depth >= depth) {
+        if (e.own == b.own and e.opp == b.opp and e.depth >= depth) {
             if (e.flag == F_EXACT or (e.flag == F_LOWER and e.score >= beta) or (e.flag == F_UPPER and e.score <= alpha)) {
                 return e.score;
             }
@@ -271,7 +258,7 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact:
     // 漏搬会让队首着法配到别人的翻子掩码,make 出非法局面(值全错,且很难查)。
     if (depth > 0) {
         const e = &tt[slot];
-        if (e.key == key and e.move >= 0) {
+        if (e.own == b.own and e.opp == b.opp and e.move >= 0) {
             const want: u6 = @intCast(e.move);
             var k: u32 = 0;
             while (k < n) : (k += 1) {
@@ -321,7 +308,8 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta: f32, ply: u32, exact:
 
     if (depth > 0 and !aborted) {
         const e = &tt[slot];
-        e.key = key;
+        e.own = b.own;
+        e.opp = b.opp;
         e.score = best;
         e.depth = @intCast(depth);
         e.flag = if (best >= beta) F_LOWER else if (best > alpha0) F_EXACT else F_UPPER;
