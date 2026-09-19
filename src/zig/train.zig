@@ -492,6 +492,11 @@ fn solveLsqr(alloc: std.mem.Allocator, rows: []const Row, x: []f32, lambda: f32,
     for (0..n) |i| x[i] = @floatCast(x0[i] + best[i]);
     if (verbose) {
         say("    LSQR {d} 次迭代 · 相对残差 → {e:.3}", .{ it, best_phi / @max(c0, 1e-300) });
+        // ⚠ 撞迭代上限且残差仍大 = **没解完**(热启动离最优太远时会发生),
+        //   拟合结果只是部分解 —— 打出来,别让"拟合后 MSE 偏高"变成无头案。
+        if (it >= max_iter and best_phi > 1e-6 * @max(c0, 1e-300)) {
+            say("    ⚠ 达到迭代上限仍未收敛(相对残差 {e:.3})—— 加大 --cgi 或换更近的热启动", .{best_phi / @max(c0, 1e-300)});
+        }
     }
 }
 
@@ -696,6 +701,9 @@ const Worker = struct {
     rows: []Row,
     log: []Log,
     cfg: Cfg,
+    /// 起始书的 scale:wt/scales 是 threadlocal,线程里 eps() 要用 —— 主线程
+    /// 在 spawn 前抄进来,workerMain 开工时写进自己那份。
+    sc: [pattern.PHASES]f32 = .{1.0} ** pattern.PHASES,
     dply: u32 = 0,
     boot_w: f32 = 0,
     n: usize = 0,
@@ -706,6 +714,7 @@ const Worker = struct {
 };
 
 fn workerMain(w: *Worker) void {
+    pattern.scales = w.sc; // threadlocal 的那份不经过 init,直接抄起始书
     var em = Emitter{ .rows = w.rows, .boot_w = w.boot_w };
     var g = w.g0;
     while (g < w.g1) : (g += 1) {
@@ -1001,10 +1010,30 @@ fn playAb(cfg: Cfg, rnd: std.Random, qa: []const u8, sa: [pattern.PHASES]f32, qb
     return black - white;
 }
 
-fn abTest(cfg: Cfg, blob_new: []const u8, blob_old: []const u8, title: []const u8) !void {
+/// A/B 的一个配对(两盘:同一开局、双方各执黑一次)。
+/// 结果与线程数/分片无关:每对有独立的开局种子,wt / scales / 置换表
+/// 全是 threadlocal,配对之间零共享。
+const AbPair = struct {
+    g: u32,
+    d1: i32 = 0, // 新书执黑那盘的黑视角子差
+    d2: i32 = 0, // 新书执白那盘
+};
+
+fn abShard(cfg: Cfg, qa: []const u8, sa: [pattern.PHASES]f32, qb: []const u8, sb: [pattern.PHASES]f32, shard: []AbPair) void {
+    for (shard) |*p| {
+        // 每一对都换一个新开局编号:同种子必然同一盘棋
+        const s = cfg.seed +% @as(u64, p.g) *% 0x9E37_79B9_7F4A_7C15;
+        var oa = std.Random.DefaultPrng.init(s);
+        p.d1 = playAb(cfg, oa.random(), qa, sa, qb, sb, true) catch 0;
+        var ob = std.Random.DefaultPrng.init(s);
+        p.d2 = playAb(cfg, ob.random(), qa, sa, qb, sb, false) catch 0;
+    }
+}
+
+fn abTest(alloc: std.mem.Allocator, cfg: Cfg, blob_new: []const u8, blob_old: []const u8, title: []const u8) !void {
     // A/B 的语义是"打量化后的产物" ⇒ 必须摘掉 f32 影子表。
     // 否则 search 会拿 f32 分值去指导**双方**着法,而 installQuant 装进去的表
-    // 根本没人读 —— 打出来的结论与这两本书无关。与下面 clearTT 那条同级:
+    // 根本没人读 —— 打出来的结论与这两本书无关。与 playAb 里 clearTT 那条同级:
     // 都是"状态没换干净 ⇒ 结论失去意义"的静默错误。
     const saved_u = search.eval_u;
     search.eval_u = null;
@@ -1015,34 +1044,47 @@ fn abTest(cfg: Cfg, blob_new: []const u8, blob_old: []const u8, title: []const u
     const sc_new = blobScales(blob_new);
     const sc_old = blobScales(blob_old);
     const pairs = @max(cfg.ab / 2, 1);
-    say("\nA/B:{s} · {d} 对(每对同一开局、双方各执黑一次)· 深度 {d}", .{ title, pairs, cfg.depth });
+    const nt: usize = @max(@min(@as(usize, cfg.threads), pairs), 1);
+    say("\nA/B:{s} · {d} 对(每对同一开局、双方各执黑一次)· 深度 {d} · {d} 线程", .{ title, pairs, cfg.depth, nt });
+
     const t0 = nanos();
+    const all = try alloc.alloc(AbPair, pairs);
+    for (0..pairs) |g| all[g] = .{ .g = @intCast(g) };
+    // 连续分片,主线程也下第 0 片
+    const per = (pairs + nt - 1) / nt;
+    const ths = try alloc.alloc(std.Thread, nt - 1);
+    var spawned: usize = 0;
+    for (1..nt) |ti| {
+        const lo = ti * per;
+        if (lo >= pairs) break;
+        const hi = @min(lo + per, pairs);
+        ths[spawned] = try std.Thread.spawn(.{}, abShard, .{ cfg, q_new, sc_new, q_old, sc_old, all[lo..hi] });
+        spawned += 1;
+    }
+    abShard(cfg, q_new, sc_new, q_old, sc_old, all[0..@min(per, pairs)]);
+    for (ths[0..spawned]) |t| t.join();
+
     var w: u32 = 0;
     var l: u32 = 0;
     var d: u32 = 0;
     var margin: i64 = 0;
-    for (0..pairs) |g| {
-        // 每一对都换一个新开局编号:同种子必然同一盘棋
-        var oa = std.Random.DefaultPrng.init(cfg.seed +% @as(u64, g) *% 0x9E37_79B9_7F4A_7C15);
-        const d1 = try playAb(cfg, oa.random(), q_new, sc_new, q_old, sc_old, true);
-        if (d1 > 0) {
+    for (all) |p| {
+        if (p.d1 > 0) {
             w += 1;
-        } else if (d1 < 0) {
+        } else if (p.d1 < 0) {
             l += 1;
         } else {
             d += 1;
         }
-        margin += d1;
-        var ob = std.Random.DefaultPrng.init(cfg.seed +% @as(u64, g) *% 0x9E37_79B9_7F4A_7C15);
-        const d2 = try playAb(cfg, ob.random(), q_new, sc_new, q_old, sc_old, false);
-        if (d2 < 0) {
+        margin += p.d1;
+        if (p.d2 < 0) {
             w += 1;
-        } else if (d2 > 0) {
+        } else if (p.d2 > 0) {
             l += 1;
         } else {
             d += 1;
         }
-        margin -= d2;
+        margin -= p.d2;
     }
     const tot = w + l + d;
     const mg = @as(f64, @floatFromInt(margin)) / @as(f64, @floatFromInt(@max(tot, 1)));
@@ -1264,8 +1306,10 @@ pub fn main(init: std.process.Init) !void {
         } else {
             // ① 自对弈 + 摊行(多线程;每局独立:自己的种子 + 自己的起始置换表)
             const round_seed = cfg.seed +% @as(u64, iter) *% 0x9E37_79B9;
+            const base_sc = pattern.scales; // 主线程那份 = 起始书(wt/scales 是 threadlocal)
             for (workers) |*w| {
                 w.seed = round_seed;
+                w.sc = base_sc;
                 w.dply = dply;
                 w.boot_w = bootw;
                 w.n = 0;
@@ -1444,9 +1488,9 @@ pub fn main(init: std.process.Init) !void {
         //   而下面 abTest 的文案打的是"新书 vs 起始书" —— 写死 weights0 就会
         //   在报告里说一套、实际打另一套:你以为在验"比起点强了多少",
         //   其实是在验"比内嵌那本强了多少",甚至可能起点就是内嵌那本之外的第三本。
-        try abTest(cfg, blob, base, "新书 vs 起始书(整体:新一轮训练 + 自动定标)");
+        try abTest(arena, cfg, blob, base, "新书 vs 起始书(整体:新一轮训练 + 自动定标)");
         // 第二组:两本书**只差定标**(同一个 f32 权重)⇒ 这一组才是在量"自动定标值多少"
-        if (blob_ref.len > 0) try abTest(cfg, blob, blob_ref, "自动定标 vs 手调定标(同一个 f32 权重,只差定标)");
+        if (blob_ref.len > 0) try abTest(arena, cfg, blob, blob_ref, "自动定标 vs 手调定标(同一个 f32 权重,只差定标)");
     }
     say("\n总用时 {d:.1} s", .{secs(t_all)});
     if (!same) std.process.exit(1);

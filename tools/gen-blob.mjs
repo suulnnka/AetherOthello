@@ -77,8 +77,8 @@ if (has('--zero')) {
     process.exit(1);
   }
   const r = readBlob(inPath);
-  if (r.version !== 2 || r.phases !== 2) {
-    console.log(`✗ ${inPath} 是 v${r.version}/${r.phases} 相位,--expand 只吃 v2 的 2 相位书`);
+  if (r.phases !== 2) {
+    console.log(`✗ ${inPath} 是 ${r.phases} 相位,--expand 只吃 2 相位书(v2/v3 均可)`);
     process.exit(1);
   }
   const span = 60 / P;

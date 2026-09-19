@@ -34,10 +34,13 @@ pub const PTN_COUNT: usize = 38;
 /// 为王),一套权重表达不了,所以按子数分档、每档一套完整的轨道权重。
 /// 分档**均分** 60 手(SPAN = 60/PHASES,P 必须整除 60),公式见 `phaseOf`。
 /// 档数必须在**训练时**定死:事后归并/拆分都有实测代价(kix4:6 档平均成
-/// 2 档差 5.2 子;2 档从零训对 6 档只差 1.7 子)。
-/// ⚠ 相位数扫描时直接改这一行(整除 60);LSQR 之后每档都能精确拟合,
-/// 旧的"CG 时代 >34 区段从不更新"的结论作废,须重扫。
-pub const PHASES: usize = 2;
+/// 2 档差 5.2 子)。
+/// 实测记录(各 200 局 A/B,标签源 = Egaroucid lv.17 监督数据,基线 = 2 档):
+/// P=3 +9.0、P=4 +6.2、P=5 +9.4、P=6 +7.1、P=10 +6.2 —— 3 档以上彼此在
+/// 噪声内(P=3/5 的分界不含 34,基线被展开削弱,读数偏高),取 4 档:
+/// 干净测量 + 体积折中(书 37.9KB;6 档 56.9KB 无收益)。
+/// (自对弈小样本时代曾测得"P=2 最优"——那是数据饥饿的伪象,作废。)
+pub const PHASES: usize = 4;
 const SPAN: u32 = 60 / @as(u32, PHASES);
 comptime {
     if (60 % PHASES != 0) @compileError("相位数必须整除 60(均分 60 手)");
@@ -249,10 +252,14 @@ pub var orbit: [PER_PHASE]u16 = undefined;
 pub var sigma: [PER_PHASE]i8 = undefined;
 /// 已折入符号的查表:wt[阶段][槽] = sigma · 权重。
 /// 于是求值退化成 38 次查表 + 求和,不需要在热路径上乘符号。
-pub var wt: [PHASES][PER_PHASE]i8 = undefined;
+/// ⚠ `wt` 与 `scales` 是 threadlocal:多线程 A/B 时每个线程 installQuant
+///   自己那两本书(共享会互相覆盖、对战失去意义);自对弈线程不走 wt
+///   (evalFloat),但 eps() 要读 scales —— workerMain 会把起始书的抄进去。
+///   wasm 单线程,行为与体积都不变。
+pub threadlocal var wt: [PHASES][PER_PHASE]i8 = undefined;
 /// 定标:int8 加权和 → 子数。**每相位一个** —— 两相位幅值常差一倍,
 /// 共用一个 scale 会让幅值小的那个相位白丢一半分辨率。
-pub var scales: [PHASES]f32 = .{1.0} ** PHASES;
+pub threadlocal var scales: [PHASES]f32 = .{1.0} ** PHASES;
 pub var ready: bool = false;
 /// init 失败在第几步(排障用;0 = 未失败)。返回 bool 而不是 error 是为了
 /// 让调用方在 wasm 里也能拿到一个可以读的数字。
