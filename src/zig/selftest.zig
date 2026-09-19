@@ -87,6 +87,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     try ruleChecks();
+    try colorChecks();
     try foldChecks();
     try bench(200_000);
     if (failed) {
@@ -127,6 +128,83 @@ fn geoBoard(b: rules.Board, g: usize) rules.Board {
         }
     }
     return .{ .own = own, .opp = opp };
+}
+
+/// 颜色记账回归:自对弈若干局,用显式黑子位板当**真值**,逐手校验
+/// 「own_black 记账 == 棋盘上实际该走的一方」,终局校验子差归属。
+/// 防的是 train.zig 踩过的两个坑(记错一处,终局子差就反号,
+/// 训练标签整体反号、极难定位):
+///   · .over 返回**未换边**的落子结果(b.own = 落子方的对手),记账必须翻;
+///   · .pass 时同一方连走,行棋方没变,记账**不**翻。
+/// 真值不依赖记账:黑子集合每手按「行棋方颜色 + 翻子掩码」显式更新,
+/// 记账一旦偏离,与棋盘/黑子集合的一致性断言立刻失败。
+fn colorChecks() !void {
+    say("颜色记账(自对弈 own_black vs 显式黑子位板)", .{});
+    var prng = std.Random.DefaultPrng.init(0x07_4E_11_0A_2026);
+    const rnd = prng.random();
+    var mismatch: u32 = 0;
+    var passes: u32 = 0;
+    var over_cnt: u32 = 0;
+    const N: u32 = 60;
+    var g: u32 = 0;
+    while (g < N) : (g += 1) {
+        var b = rules.Board.initial;
+        var own_black = true;
+        var black: u64 = (@as(u64, 1) << 35) | (@as(u64, 1) << 28); // 真值:黑子的格子
+        var togo: u32 = 6;
+        while (true) {
+            const m = rules.moves(b);
+            if (m == 0) {
+                const sw = rules.Board{ .own = b.opp, .opp = b.own };
+                if (rules.moves(sw) == 0) break;
+                b = sw;
+                own_black = !own_black;
+                continue;
+            }
+            var sq: u6 = undefined;
+            if (togo > 0 and @popCount(m) > 1) {
+                var k = rnd.intRangeLessThan(u32, 0, @popCount(m));
+                var mm = m;
+                while (k > 0) : (k -= 1) mm &= mm - 1;
+                sq = @intCast(@ctz(mm));
+                togo -= 1;
+            } else {
+                const res = search.think(b, 0, 0, 0); // 贪心:只测记账,不测搜索
+                if (res.move < 0) break;
+                sq = @intCast(res.move);
+            }
+            // 真值更新在记账翻转**之前**做:此刻 own_black 就是行棋方颜色
+            const f = rules.flips(b, sq);
+            const nb_black = if (own_black)
+                (b.own | f | (@as(u64, 1) << sq))
+            else
+                (b.opp & ~f);
+            const st = rules.step(b, sq);
+            b = st.board;
+            black = nb_black;
+            switch (st.status) {
+                .ok => own_black = !own_black,
+                .pass => passes += 1, // 同一方连走:颜色不变
+                .over => {
+                    over_cnt += 1;
+                    own_black = !own_black; // .over 未换边,翻过才对得上 b.own
+                    // 终局校验:记账口径的子差 == 真值子差
+                    const own: i32 = @as(i32, @popCount(b.own));
+                    const opp: i32 = @as(i32, @popCount(b.opp));
+                    const by_track: i32 = if (own_black) own - opp else opp - own;
+                    const bl: i32 = @as(i32, @popCount(black));
+                    const by_truth: i32 = bl - (own + opp - bl);
+                    if (by_track != by_truth) mismatch += 1;
+                    break;
+                },
+            }
+            // 逐手校验:黑子集合 == 记账视角下 b 的那一半
+            const expect_black = if (own_black) b.own else b.opp;
+            if (expect_black != black) mismatch += 1;
+        }
+    }
+    check(mismatch == 0, "{d} 局(经 .over 结束 {d} · 虚着 {d} 次)记账/真值不一致 {d} 处", .{ N, over_cnt, passes, mismatch });
+    check(passes > 0, "覆盖到虚着路径(虚着 {d} 次 ≥ 1)", .{passes});
 }
 
 fn ruleChecks() !void {

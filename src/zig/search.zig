@@ -37,6 +37,11 @@ const MAX_MOVES: usize = 36; // 黑白棋单方最多 33 个合法着法
 
 /// 置换表:2^19 × 16 B = 8 MB。放 BSS,不占二进制体积(零页不进文件)。
 /// 用 u64 键而不是"两个 32 位字":后者要额外维护两组键,漏一处就静默出伪命中。
+///
+/// ⚠ 本文件所有**可变**状态(tt / tt_ready / ply_* / nodes / evals / aborted /
+///   node_limit)一律 `threadlocal`:训练器多线程自对弈时每线程一份,无锁无竞争。
+///   wasm 侧永远单线程,threadlocal 退化为普通全局,行为不受影响
+///   (体积闸门与 probe-wasm 会把关这一点)。
 const TT_BITS: u5 = 19;
 const TT_SIZE: usize = 1 << TT_BITS;
 const TT_MASK: u64 = TT_SIZE - 1;
@@ -50,8 +55,8 @@ const Entry = extern struct {
     pad: [3]u8 = .{ 0, 0, 0 },
 };
 
-var tt: [TT_SIZE]Entry = undefined;
-var tt_ready = false;
+threadlocal var tt: [TT_SIZE]Entry = undefined;
+threadlocal var tt_ready = false;
 
 /// 中局/残局共表时必须把两种评分语义隔开,否则一次伪命中就能让残局求解给出错着
 const EXACT_SALT: u64 = 0x5DEE_CE66_D000_0000;
@@ -94,14 +99,14 @@ const W64O = [64]i8{
 };
 
 /// 每层暂存区(照抄主分支做法:按 ply 索引的全局数组,避免每层重新分配)
-var ply_moves: [MAX_PLY][MAX_MOVES]u6 = undefined;
-var ply_flips: [MAX_PLY][MAX_MOVES]u64 = undefined;
-var ply_scores: [MAX_PLY][MAX_MOVES]i32 = undefined;
-var ply_cnt: [MAX_PLY]u32 = undefined;
+threadlocal var ply_moves: [MAX_PLY][MAX_MOVES]u6 = undefined;
+threadlocal var ply_flips: [MAX_PLY][MAX_MOVES]u64 = undefined;
+threadlocal var ply_scores: [MAX_PLY][MAX_MOVES]i32 = undefined;
+threadlocal var ply_cnt: [MAX_PLY]u32 = undefined;
 
-pub var nodes: u64 = 0;
-pub var node_limit: u64 = 0; // 0 = 不限
-pub var aborted: bool = false;
+pub threadlocal var nodes: u64 = 0;
+pub threadlocal var node_limit: u64 = 0; // 0 = 不限
+pub threadlocal var aborted: bool = false;
 
 /// 训练用的 **f32 权重表影子**。非 null 时叶子求值走它(pattern.evalFloat),
 /// 训练自对弈因此全程不经过 int8 量化 —— 这是 PTQ 的前提:量化只在训练结束后
@@ -124,7 +129,7 @@ pub fn clearTT() void {
 }
 
 /// 增量统计用:本次搜索里 evaluation 被调用的次数(调试/训练统计)
-pub var evals: u64 = 0;
+pub threadlocal var evals: u64 = 0;
 
 pub fn terminalScore(b: rules.Board) f32 {
     return @floatFromInt(b.diff());

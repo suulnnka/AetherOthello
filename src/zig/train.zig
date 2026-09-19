@@ -19,14 +19,10 @@
 //      只有①②的话评估会收敛到"与自己的搜索自洽"的退化解(u ≡ 0 就是那个
 //      平凡不动点),对局结果把它钉在真实刻度上。
 //
-// ⚠ 引导样本在**第 0 轮必须关掉**:那一轮权重是 0 ⇒ 搜索值恒为 0 ⇒
-//   引导项全在喊"评估应该是 0",而它和对局结果约束的是同一批特征,
-//   两边一平均就把信号稀释掉(踩过)。
-//
-//   ⚠ 但请注意这条(以及下面 `depth0` 的同款注释)描述的是**从零权书冷启动**。
-//   现在 `--load` 缺省用嵌入的那本(非零),第 0 轮的搜索值**并不**恒为 0。
-//   两个设置本身都还合理,但要拿"权重是 0"去解释某个观测到的现象之前,
-//   先确认这一次的起始书到底是不是零 —— 曾经照着这句话查过一个不存在的问题。
+// ⚠ 曾经"引导样本在第 0 轮必须关掉":零权书冷启动时搜索值恒为 0,引导项
+//   全在喊"评估应该是 0",把信号稀释掉(踩过)。**现在这条已移除** —— 起始书
+//   恒为非零(内嵌或 --load),第 0 轮的搜索值就是正常的引导标签,再关等于
+//   白丢一半信号(实测:第 0 轮还会被纯结果标签把书拽偏一轮)。
 //
 // ── 量化:PTQ(训练后量化)──────────────────────────────────────────
 // 训练**全程 f32**:循环里既不做幅值夹取、也不做 int8 舍入;自对弈的叶子值
@@ -57,6 +53,9 @@
 //
 // 所有随机性走固定种子,整条训练链**可复现** —— 与项目里"难度按节点预算、
 // 不按墙钟"是同一条原则:能复现才谈得上断言。
+// 自对弈是多线程的:每局的随机流由「轮种子 + 局号」独立派生、每局前清本线程
+// 的置换表,局与局之间没有任何共享状态 ⇒ 第 g 局的棋谱与标签**不依赖线程数
+// 和调度顺序**(改 --threads 重跑,产出逐字节一致)。
 const std = @import("std");
 const rules = @import("rules.zig");
 const pattern = @import("pattern.zig");
@@ -87,26 +86,30 @@ fn span(from: i96, to: i96) f64 {
 
 const Cfg = struct {
     games: u32 = 300, // 每轮自对弈局数
-    /// 自对弈搜索深度(第 1 轮起)。**约定:6 层,不要为了"标签更准"去加深。**
+    /// 自对弈搜索深度(第 0 轮用 depth0)。**约定:6 层,不要为了"标签更准"去加深。**
     /// 深度每 +2 层成本大约乘一个量级(300 局 d6 约 67 s),而标签质量并不随深度
     /// 线性变好;6 层已经够把行动力 / 稳定子 / 奇偶这些结构灌进评估。
+    /// 实证:d8/e12 续训 2000×6 对 d6/e10 的书 A/B 打平(95:95,−0.6±1.8)。
     /// 跨实现对打也走这个深度(tools/match-branches.mjs 的 --depth 默认 6)。
     depth: u32 = 6,
-    // ⚠ 第 0 轮必须用浅搜:那一轮权重是 0 ⇒ 叶子值全等 ⇒ 零窗口搜索**一次都剪不掉**
-    //   (窗口 (α,α+ε) 里所有值都恰好等于 α,谁都不 fail-high),整棵深树被完整展开。
-    //   实测 depth=6 时一盘要 60 s,300 局就是一晚上。浅搜把这一轮的成本压到可忽略,
-    //   拿到非零权重后第 1 轮起再上深搜(那时叶子值有区分度,剪枝就正常了)。
-    depth0: u32 = 2,
+    // 第 0 轮深度。旧用途:零权书冷启动时深搜不剪枝(叶子值全等 ⇒ 零窗口一次
+    // 都剪不掉),一盘要 60 s,浅搜把那一轮压到可忽略。现在起始书恒非零,默认
+    // 直接跟 depth 一致;留着旋钮只是给"想省第 0 轮时间"的场景。
+    depth0: u32 = 6,
     endgame: u32 = 10, // 空位 ≤ 此值时走完全求解(顺带产出精确标签)
     open: u32 = 6, // 开局随机步数:确定性引擎不加这个,300 局等于 1 局
     iters: u32 = 3, // 外层轮次(每轮 = 自对弈 + 最小二乘 + 换权重)
     cg: u32 = 400, // CG 最大迭代数
     mu: f32 = 0.1, // 岭正则(相对正规矩阵对角均值)。实测 0.5 就把信号压没了(A/B 29:29)
     w_out: f32 = 0.35, // 对局结果样本权重
-    w_boot: f32 = 1.0, // 引导样本权重(第 0 轮强制 0)
+    w_boot: f32 = 1.0, // 引导样本权重
     w_exact: f32 = 4.0, // 精确样本权重
     ab: u32 = 40, // 训练后 new vs old 的成对局数(每局双方各执黑一次)
     seed: u64 = 0, // 0 ⇒ 用默认种子
+    /// 自对弈线程数。0 ⇒ 取逻辑核数。
+    /// 每局用「轮种子 + 局号」独立派生随机流、每局前清自己的置换表,
+    /// 所以**结果与线程数无关** —— 改 --threads 重跑,产出逐字节一致。
+    threads: u32 = 0,
     out: []const u8 = "src/zig/weights.bin",
     /// 非空 ⇒ 额外落一本**对照书**:同一个 f32 权重、但用**起始书那套定标**
     /// (先夹到 ±127·scale 再量化)。两本书只差定标 ⇒ 可以直接对打,
@@ -371,8 +374,15 @@ fn playGame(cfg: Cfg, depth: u32, rnd: std.Random, log: []Log, em: *Emitter) !Ga
             const st = rules.step(b, sq);
             b = st.board;
             switch (st.status) {
-                .ok, .pass => own_black = !own_black,
-                .over => break,
+                .ok => own_black = !own_black,
+                .pass => {}, // 对方虚着,同一方连走:行棋方没变,颜色不翻
+                .over => {
+                    // step 的 .over 返回**未换边**的落子结果(b.own = 落子方的对手),
+                    // 翻一下才维持「own_black == b.own 这一方的颜色」,终局数子才对。
+                    // 不翻的话每局子差都反号(实测 200 局全错),标签整体反号。
+                    own_black = !own_black;
+                    break;
+                },
             }
             continue;
         }
@@ -394,8 +404,13 @@ fn playGame(cfg: Cfg, depth: u32, rnd: std.Random, log: []Log, em: *Emitter) !Ga
         const st = rules.step(b, @intCast(res.move));
         b = st.board;
         switch (st.status) {
-            .ok, .pass => own_black = !own_black,
-            .over => break,
+            .ok => own_black = !own_black,
+            .pass => {}, // 对方虚着,同一方连走:行棋方没变,颜色不翻
+            .over => {
+                // .over 返回未换边的落子结果,翻过之后终局 black = own 才数对(见上)
+                own_black = !own_black;
+                break;
+            },
         }
     }
 
@@ -417,6 +432,47 @@ fn playGame(cfg: Cfg, depth: u32, rnd: std.Random, log: []Log, em: *Emitter) !Ga
         em.add(board, outcome, cfg.w_out);
     }
     return .{ .plies = np, .diff = diff };
+}
+
+// ─────────────────────── 多线程自对弈 ───────────────────────
+
+/// 一个线程的工作包:一段连续的局号区间 + 自己的行缓冲与统计。
+/// 搜索的可变状态(置换表 / 每层暂存区)在 search.zig 里是 threadlocal,
+/// 线程之间**零共享、零锁**;pattern 的折叠表/权重在轮内只读,共享安全。
+const Worker = struct {
+    g0: u32,
+    g1: u32, // 局号区间 [g0, g1)
+    seed: u64 = 0, // 本轮种子(局种子 = seed +% g × 黄金比)
+    rows: []Row,
+    log: []Log,
+    cfg: Cfg,
+    dply: u32 = 0,
+    boot_w: f32 = 0,
+    n: usize = 0,
+    dropped: usize = 0,
+    plies: u64 = 0,
+    diff: i64 = 0,
+    failed: bool = false,
+};
+
+fn workerMain(w: *Worker) void {
+    var em = Emitter{ .rows = w.rows, .boot_w = w.boot_w };
+    var g = w.g0;
+    while (g < w.g1) : (g += 1) {
+        // 每局前清本线程的置换表(8 MB memset ≈ 1 ms,不到整局的 1%):
+        // 局与局彻底独立 ⇒ 第 g 局的结果在任何线程数、任何调度下都相同。
+        // 不清的话 TT 残留会改变同分着法的平局判决,多线程就复现不出单线程了。
+        search.clearTT();
+        var prng = std.Random.DefaultPrng.init(w.seed +% @as(u64, g) *% 0x9E37_79B9_7F4A_7C15);
+        const st = playGame(w.cfg, w.dply, prng.random(), w.log, &em) catch {
+            w.failed = true;
+            return;
+        };
+        w.plies += st.plies;
+        w.diff += st.diff;
+    }
+    w.n = em.n;
+    w.dropped = em.dropped;
 }
 
 // ─────────────────────── 量化 / 落盘 ───────────────────────
@@ -674,8 +730,14 @@ fn playAb(cfg: Cfg, rnd: std.Random, qa: []const u8, sa: [pattern.PHASES]f32, qb
         const st = rules.step(b, sq);
         b = st.board;
         switch (st.status) {
-            .ok, .pass => own_black = !own_black,
-            .over => break,
+            .ok => own_black = !own_black,
+            .pass => {}, // 对方虚着,同一方连走:行棋方没变,颜色不翻
+            .over => {
+                // .over 返回未换边的落子结果;不翻的话终局子差反号,
+                // 且虚着之后 installQuant 会给行棋方装错对手那本书
+                own_black = !own_black;
+                break;
+            },
         }
     }
     const own = @as(i32, @popCount(b.own));
@@ -796,6 +858,8 @@ pub fn main(init: std.process.Init) !void {
             cfg.ab = try std.fmt.parseInt(u32, v, 10);
         } else if (std.mem.eql(u8, k, "--seed")) {
             cfg.seed = try std.fmt.parseInt(u64, v, 0);
+        } else if (std.mem.eql(u8, k, "--threads")) {
+            cfg.threads = try std.fmt.parseInt(u32, v, 10);
         } else if (std.mem.eql(u8, k, "--out")) {
             cfg.out = v;
         } else if (std.mem.eql(u8, k, "--ref-out")) {
@@ -806,6 +870,7 @@ pub fn main(init: std.process.Init) !void {
         }
     }
     if (cfg.seed == 0) cfg.seed = 0x07_4E_11_0A_2026; // 'OTHELLO'
+    if (cfg.threads == 0) cfg.threads = @intCast(std.Thread.getCpuCount() catch 4);
 
     // 起始权重:默认用嵌入的那本;--load 时从文件读(便于接着上一版继续训)。
     var base: []const u8 = weights0;
@@ -831,39 +896,69 @@ pub fn main(init: std.process.Init) !void {
     // pattern.init(base) 已经把 orbit / sigma / orb_zero 建好了,evalFloat 要用。
     search.eval_u = &u;
 
-    const max_rows = @as(usize, cfg.games) * 62 * 3 + 4096;
+    // 行缓冲:每局 ≤ 60 手 × 2 行(引导 + 结果;精确行只占 1 行),每线程留余量。
+    // 汇拢后的总数不会超过 games×128 + T×512,再兜一点整。
+    const n_threads: usize = @max(@min(@as(usize, cfg.threads), @as(usize, cfg.games)), 1);
+    const per: u32 = @intCast((@as(usize, cfg.games) + n_threads - 1) / n_threads);
+    const wcap: usize = @as(usize, per) * 128 + 512;
+    const max_rows = @as(usize, cfg.games) * 128 + n_threads * 512 + 4096;
     const rows = try arena.alloc(Row, max_rows);
-    const log = try arena.alloc(Log, 80);
     const q = try arena.alloc(u8, pattern.PHASES * pattern.ORBITS);
+    const workers = try arena.alloc(Worker, n_threads);
+    for (0..n_threads) |ti| {
+        const g0: u32 = @intCast(ti * per);
+        workers[ti] = .{
+            .g0 = g0,
+            .g1 = @min(g0 + per, cfg.games),
+            .rows = try arena.alloc(Row, wcap),
+            .log = try arena.alloc(Log, 80),
+            .cfg = cfg,
+        };
+    }
+    const threads = try arena.alloc(std.Thread, n_threads);
     var n_rows: usize = 0; // 最后一轮的有效行数(④ 定标要用,见循环内赋值处)
 
     const t_all = nanos();
     for (0..cfg.iters) |iter| {
-        const bootw: f32 = if (iter == 0) 0.0 else cfg.w_boot;
+        const bootw: f32 = cfg.w_boot;
         const dply: u32 = if (iter == 0) cfg.depth0 else cfg.depth;
-        say("\n━━ 第 {d}/{d} 轮 · 深度 {d} · 引导权重 {d:.2} ━━", .{ iter + 1, cfg.iters, dply, bootw });
+        say("\n━━ 第 {d}/{d} 轮 · 深度 {d} · 引导权重 {d:.2} · {d} 线程 ━━", .{ iter + 1, cfg.iters, dply, bootw, n_threads });
 
-        // ① 自对弈 + 摊行
+        // ① 自对弈 + 摊行(多线程;每局独立:自己的种子 + 自己的起始置换表)
         const t0 = nanos();
-        search.clearTT();
-        var prng = std.Random.DefaultPrng.init(cfg.seed +% iter *% 0x9E37_79B9);
-        const rnd = prng.random();
-        var em = Emitter{ .rows = rows, .boot_w = bootw };
+        const round_seed = cfg.seed +% @as(u64, iter) *% 0x9E37_79B9;
+        for (workers) |*w| {
+            w.seed = round_seed;
+            w.dply = dply;
+            w.boot_w = bootw;
+            w.n = 0;
+            w.dropped = 0;
+            w.plies = 0;
+            w.diff = 0;
+            w.failed = false;
+        }
+        for (0..n_threads) |ti| threads[ti] = try std.Thread.spawn(.{}, workerMain, .{&workers[ti]});
+        for (threads) |th| th.join();
+        // 汇拢:各线程的行搬到 rows 前部,统计量求和
         var tot_plies: u64 = 0;
         var black_diff: i64 = 0;
-        var g: u32 = 0;
-        while (g < cfg.games) : (g += 1) {
-            const st = try playGame(cfg, dply, rnd, log, &em);
-            tot_plies += st.plies;
-            black_diff += st.diff;
+        var dropped: usize = 0;
+        var total: usize = 0;
+        for (workers) |*w| {
+            if (w.failed) return error.SelfPlayFailed;
+            @memcpy(rows[total..][0..w.n], w.rows[0..w.n]);
+            total += w.n;
+            tot_plies += w.plies;
+            black_diff += w.diff;
+            dropped += w.dropped;
         }
         say("  自对弈 {d} 局 · 平均 {d} 手 · 黑子差均值 {d:.1} · {d} 行({d} 丢)· {d:.1} s",
             .{
                 cfg.games,
                 tot_plies / cfg.games,
                 @as(f64, @floatFromInt(black_diff)) / @as(f64, @floatFromInt(cfg.games)),
-                em.n,
-                em.dropped,
+                total,
+                dropped,
                 secs(t0),
             });
 
@@ -871,16 +966,16 @@ pub fn main(init: std.process.Init) !void {
         const t1 = nanos();
         var fidx: usize = 0;
         var i: usize = 0;
-        while (i < em.n) : (i += 1) {
+        while (i < total) : (i += 1) {
             if (rows[i].phase == 0) {
                 std.mem.swap(Row, &rows[i], &rows[fidx]);
                 fidx += 1;
             }
         }
         const r0 = rows[0..fidx];
-        const r1 = rows[fidx..em.n];
-        // em 是本轮的局部变量,出循环就没了 —— 行数得先抄出来,④ 定标要用
-        n_rows = em.n;
+        const r1 = rows[fidx..total];
+        // 多线程下行数得落在本轮的 total 里,④ 定标要用
+        n_rows = total;
         say("  相位 0(子数 ≤34)行 {d} · 相位 1 行 {d}", .{ r0.len, r1.len });
 
         const x0 = try arena.alloc(f32, pattern.ORBITS);
@@ -986,12 +1081,12 @@ fn usage() void {
     say(
         \\用法:train [--games=N] [--depth=N] [--depth0=N] [--endgame=N] [--open=N]
         \\            [--iters=N] [--cgi=N] [--mu=F] [--wout=F] [--wboot=F]
-        \\            [--wexact=F] [--ab=N] [--seed=N] [--out=path]
+        \\            [--wexact=F] [--ab=N] [--seed=N] [--threads=N] [--out=path]
         \\            [--ref-out=path] [--load=path] [--no-ab]
         \\
         \\  --games   每轮自对弈局数(默认 300)
         \\  --depth   第 1 轮起的自对弈深度(默认 6)
-        \\  --depth0  第 0 轮的深度(默认 2;权重为 0 时深搜不剪枝,一盘要 60 s)
+        \\  --depth0  第 0 轮的深度(默认同 --depth;起步书非零,没有浅搜的必要)
         \\  --endgame 空位 ≤ 此值时走完全求解,顺带得到精确标签(默认 10)
         \\  --open    开局随机步数,保证对局多样(默认 6)
         \\  --iters   外层轮次(默认 3)
@@ -1001,6 +1096,8 @@ fn usage() void {
         \\  (量化量程**没有**旋钮:scale 由 PTQ 在最后自动定标,
         \\   扫一组候选取评估误差最小者,日志里会打出整条取舍曲线)
         \\  --ab      训练后 A/B 成对局数(默认 40)
+        \\  --threads 自对弈线程数(默认 0 = 逻辑核数)。每局的随机流与置换表都
+        \\            按局独立派生/清空,所以结果与线程数无关,只影响速度
         \\  --out     权重落盘路径(默认 src/zig/weights.bin)
         \\  --ref-out 额外落一本**对照书**:同一个 f32 权重、但用起始书那套定标。
         \\            两本只差定标 ⇒ 对打即可把"自动定标值多少"隔离出来
