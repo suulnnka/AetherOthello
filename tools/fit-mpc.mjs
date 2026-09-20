@@ -71,7 +71,6 @@ const toLoHi = (b, color) => {
 function think(b, color, depth) {
   const [a, bb, c, d] = toLoHi(b, color);
   X.engineClear();
-  X.engineSetSeed(0, 0);
   X.engineThink(a, bb, c, d, depth, 0, 0, 0);
   return X.engineScore();
 }

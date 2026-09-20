@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="AetherOthello 在线对弈:位棋盘 + PVS/置换表 + 残局完全求解的黑白棋引擎,搜索跑在 Web Worker(zig/wasm)">
+<meta name="description" content="AetherOthello 在线黑白棋对弈:完整规则、七档 AI 难度、开局库、残局精确计算、换边与悔棋">
 <title>黑白棋 · AetherOthello</title>
 <link rel="stylesheet" href="./pages/style.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f9e5f'/%3E%3Ccircle cx='12' cy='12' r='6' fill='%23111'/%3E%3Ccircle cx='21' cy='21' r='6' fill='%23fff'/%3E%3C/svg%3E">
@@ -24,9 +24,8 @@
     <div class="win-body" id="app"></div>
   </section>
   <footer class="page-foot">
-    <span>AetherOthello — 位棋盘 + PVS/置换表 + 残局完全求解(wasm,跑在 Web Worker)</span>
-    <span class="sep">·</span>
     <a href="https://suulnnka.github.io/AetherWebOS/" target="_blank" rel="noopener">AetherWebOS 在线演示</a>
+    <span>黑白棋 · AetherOthello · <a href="https://github.com/suulnnka" target="_blank" rel="noopener">suulnnka</a></span>
   </footer>
 </main>
 <dialog id="dlg">

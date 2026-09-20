@@ -87,12 +87,28 @@ git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/comp
   opp: [lo, hi],                    // 对方位板
   level,                            // **本引擎**难度表的下标(见上;跨实现不可比)
   depth,                            // 可选:覆盖该档位的搜索深度上限(见下)
-  seed,                             // 可选:随机种子(number,≤2^53;0/缺省 = 完全确定)。
-                                    //   开局书容差选着(值好多占、近优保留)与根同分
-                                    //   随机化都由它驱动 —— UI 应每局随机、同局复用
   empties,                          // 64 - 双方子数(state 回包里有,UI 透传即可)
 }
 ```
+
+### 选着策略:引擎只报清单,UI 选(2026-09-20 重构)
+
+`seed` 字段已退役(多发的旧客户端字段被忽略)。引擎经 `engineRootN /
+engineRootMove / engineRootScore / engineRootExact / engineRootTrue` 导出
+**全部根着法与分数**(分数降序、同分位号升序,第 0 项 = engineThink 的确定
+返回值);worker 把清单原样放进 think 回包的可选字段 `root` =
+`{ moves, scores, trues, exact }`,`move` 保持引擎确定最优(清单不可用时的
+回退)。选着住在 **UI 层**(`src/policy.js`,webos 应用与独立对弈页共用同一
+份,不占引擎体积预算)。铁律:**界值一个都不许进随机池** —— 中局非首着
+的分数是零窗口 fail-soft 的**界**(trues[i]=false,真值可以任意差;实测典型
+中局局面 11 着里 9 着是界),曾经引擎内 1 子容度的随机就拿这些界当真值,
+全档送角掉血。三档:
+- **开局书**(book=1,书值=精确终局子差,逐着恒真值):容差 ±2 内按
+  2^(值−下沿) 加权,开局多样性;
+- **残局完全求解**(engineRootExact=1 且非书):**严格同值**内均匀随机,
+  且只吃真值项 —— 结局不变,只换路径;
+- **中局**(启发式):**真值着法 ±1 子**内均匀随机(engineRootTrue=1 才入池,
+  第 0 项恒真值,池永不空)。
 
 ### think 的 `depth`:可选覆盖
 
@@ -138,15 +154,19 @@ main(wasm 通道)当前是 worker 内的轻量 JS 位板遍历(wasm 暂无 legal
 ```js
 {
   id,          // 原样回传
-  move,        // 0..63;−1 = 无合法着法(该跳过回合)
+  move,        // 0..63;−1 = 无合法着法(该跳过回合)。书内/终局精确解时
+                //   worker 在容差/同分内随机选(见上「选着策略」),其余 = 引擎最优
   score,       // 行棋方视角的估值
   depth,       // 这一手实际跑完的深度(0 = 贪心;完全求解时是求解深度)
   depthMax,    // 该档位标称深度(本引擎难度表里 level 那一项的 depth)
   exact,       // score 是否为**精确终局子差**
   nodes,       // 节点数
   book,        // 开局书命中(命中时 depth=0、nodes=0、score=书内精确值,行棋方
-                //   视角);可选字段,无书实现恒为 false —— UI 靠它标「开局书」
+                //   视角);可选字段,无书实现恒为 false —— UI 靠它标「开局库」
                 //   来源,别拿 depth=0 外推(书着与贪心在 depth 上同形)
+  name,        // 书命中**根局面**的开局名(可选,仅 book=1 且非空时携带):
+                //   blob 名字池的 ASCII 串,同一局面多名时「 / 」拼接(换位汇成
+                //   的局面常这样)。UI 显示「开局库 · 名字 · 估值」,同 chess
   empties,     // 原样回传
   ms,          // 耗时(毫秒,含引擎内部搜索;不含消息往返)
   engine,      // 信息字段:实现名('js' / 'wasm'),不参与断言

@@ -19,9 +19,14 @@
  *                             跳过回合由调用方推得:moves 空且 over=false → 查对方
  *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, depth?, empties }
  *                           → { id, move, score, depth, depthMax, nodes,
- *                               exact, empties, ms, engine, book }
+ *                               exact, empties, ms, engine, book, name?, root? }
+ *                             root = { moves, scores, trues, exact } 根着法清单
+ *                               原样透传,选着策略在 UI 层(src/policy.js)
  *                             book = 开局书命中(depth=0、nodes=0、score 为书内
- *                               精确值);UI 靠它标「开局书」来源,无书实现恒 false
+ *                               精确值);UI 靠它标「开局库」来源,无书实现恒 false
+ *                             name = 书命中局面的开局名(blob 名字池的 ASCII 串,
+ *                               同局面多名「 / 」拼接);仅 book=1 且非空时携带
+ *                               —— UI 显示「开局库 · 名字 · 估值」,同 chess
  *                             move = -1 表示无合法着法(该跳过回合)
  *                             depth 可选:覆盖该档位的深度上限 —— 标定与跨实现
  *                             对打要"同深度比棋力"时用,缺省完全不变
@@ -193,13 +198,8 @@ self.onmessage = (e) => {
      * 缺省(undefined / null / NaN)时行为与原来一字不差。 */
     const depthMax = Number.isFinite(d.depth) ? d.depth : lv.depth;
     const bud = Number(lv.budget) || 0;
-    /* `seed` 可选:根同分着法间做可种子化随机(⑪);缺省 0 = 完全确定,
-     * 探针 / e2e / 对打脚本的确定性不受影响。协议文档同步两分支后补记。 */
-    if (Number.isFinite(d.seed) && typeof X.engineSetSeed === 'function') {
-      X.engineSetSeed(d.seed >>> 0, Math.floor(d.seed / 4294967296) >>> 0);
-    } else if (typeof X.engineSetSeed === 'function') {
-      X.engineSetSeed(0, 0);
-    }
+    /* `seed` 已退役(2026-09-20 随机化事故后重构):引擎侧选着随机整体移除,
+     * 旧客户端多发的 seed 字段直接忽略 —— think 行为不再随任何种子变化。 */
     /* ⑥ MPC:按档位的置信度系数开关(缺省/老回包无 mpc 字段 = 关)。 */
     if (typeof X.engineSetMpc === 'function') {
       X.engineSetMpc(lv.mpc ? 1 : 0, Number(lv.mpc) || 0);
@@ -220,16 +220,40 @@ self.onmessage = (e) => {
       bud >>> 0, Math.floor(bud / 4294967296) >>> 0,
     );
     const ms = performance.now() - t0;
+    // 开局书命中标志(书着 depth=0 与贪心同形,只能引擎自己说);typeof 防御
+    // 还没带 engineBook 导出的旧 wasm
+    const book = typeof X.engineBook === 'function' && X.engineBook() === 1;
+    // 书命中的开局名:引擎给的是 blob 内字符串的地址+长度(@embedFile 常量在
+    // 线性内存里,零拷贝),这里按 ASCII 解出。仅 book=1 且非空才带 name 字段。
+    let bookName = '';
+    if (book && typeof X.engineBookNamePtr === 'function' && X.memory) {
+      const p = X.engineBookNamePtr(), l = X.engineBookNameLen();
+      if (p > 0 && l > 0) bookName = new TextDecoder('ascii').decode(new Uint8Array(X.memory.buffer, p, l));
+    }
+    /* 根着法清单原样透传:选着策略在 **UI 层**(src/policy.js,webos 应用与
+     * 独立页共用同一份)—— move 字段是引擎确定最优(清单第 0 项)兼做 UI 的
+     * 回退;清单格式见 WORKER-PROTOCOL.md「选着策略」。 */
+    let root;
+    if (typeof X.engineRootN === 'function') {
+      const rn = X.engineRootN();
+      const moves = [], scores = [], trues = [];
+      for (let i = 0; i < rn; i++) {
+        moves.push(X.engineRootMove(i));
+        scores.push(X.engineRootScore(i));
+        trues.push(typeof X.engineRootTrue === 'function' && X.engineRootTrue(i) === 1);
+      }
+      root = { moves, scores, trues, exact: X.engineRootExact() === 1 };
+    }
     self.postMessage({
       id: d.id,
       move: mv,
+      ...(root ? { root } : {}),
       score: X.engineScore(),
       depth: X.engineDepth(),
       depthMax,
       exact: X.engineExact() === 1,
-      // 开局书命中标志(书着 depth=0 与贪心同形,只能引擎自己说);typeof 防御
-      // 还没带 engineBook 导出的旧 wasm
-      book: typeof X.engineBook === 'function' && X.engineBook() === 1,
+      book,
+      ...(bookName ? { name: bookName } : {}),
       // 引擎的节点计数是 u64,emscripten 那套 BigInt 返回值这里用不上 —— 拆两半拼
       nodes: X.engineNodesLo() + X.engineNodesHi() * 4294967296,
       empties: d.empties,

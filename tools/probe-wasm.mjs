@@ -47,6 +47,8 @@ const NEED = [
   'engineInit', 'engineReady', 'engineOrbits', 'engineWeightBytes', 'engineScale',
   'engineEval', 'engineThink', 'engineScore', 'engineDepth', 'engineExact',
   'engineNodesLo', 'engineNodesHi', 'engineClear',
+  'engineBook', 'engineBookNamePtr', 'engineBookNameLen',
+  'engineRootN', 'engineRootMove', 'engineRootScore', 'engineRootExact', 'engineRootTrue',
 ];
 const missing = NEED.filter((n) => typeof X[n] !== 'function');
 ok(missing.length === 0, `导出符号齐全(${NEED.length} 个)` + (missing.length ? ` 缺 ${missing}` : ''));
@@ -207,6 +209,48 @@ const bookHit = lastNodes() === 0;
 ok(bookHit || X.engineDepth() >= 2, `engineDepth() = ${X.engineDepth()}(书命中或迭代加深至少 2 层)`);
 ok(bookHit || lastNodes() > 0, `engineNodes = ${lastNodes()}(书命中则为 0)`);
 ok(X.engineExact() === 0, `engineExact() = ${X.engineExact()}(中局不是精确解)`);
+/* ⑩b 开局名透传:根局面(书入口)无名;走一手后的 5 子局面带名 —— 数据事实:
+ * 该局面由 Diagonal/Parallel/Perpendicular 三条命名开局换位汇成,三名并列。
+ * 指针指向 blob(@embedFile 常量)内部,按地址+长度读线性内存。 */
+if (bookHit && typeof X.engineBookNamePtr === 'function' && X.memory) {
+  ok(X.engineBookNamePtr() === 0, `初始局面书命中:无名(engineBookNamePtr() = 0)`);
+  const [o1, p1] = applyMove(INIT_B, INIT_W, m0);
+  thinkBB(o1, p1, 6, 8);
+  const np = X.engineBookNamePtr(), nl = X.engineBookNameLen();
+  const nm = np > 0 && nl > 0
+    ? new TextDecoder().decode(new Uint8Array(X.memory.buffer, np, nl)) : '';
+  ok(X.engineBook() === 1 && nm === 'Diagonal Opening / Parallel Opening / Perpendicular Opening',
+    `首手后书命中带开局名:${JSON.stringify(nm)}`);
+}
+/* ⑩c 根着法清单(选着策略上移到 JS 后的输出通道):书命中 → 全部首着与
+ * **精确**书值(初始 4 着全 0 分,同分位号升序 → 第 0 项 d3,与 engineThink
+ * 返回一致);中局搜索 → exact=0:分数是零窗口 fail-soft 的**界**,worker 的
+ * 选着只许取第 0 项(曾经引擎内拿界做 1 子容差随机,全档送角掉血)。 */
+if (typeof X.engineRootN === 'function') {
+  thinkBB(INIT_B, INIT_W, 6, 8);
+  const rn = X.engineRootN();
+  const all0 = Array.from({ length: rn }, (_, i) => X.engineRootScore(i)).every((v) => Math.abs(v) < 1e-6);
+  const allTrue = Array.from({ length: rn }, (_, i) => X.engineRootTrue(i)).every((t) => t === 1);
+  ok(X.engineBook() === 1 && rn === 4 && all0 && X.engineRootExact() === 1 && X.engineRootMove(0) === 19,
+    `书命中根清单:4 项、全 0 分、精确、第 0 项 d3(n=${rn}, exact=${X.engineRootExact()})`);
+  ok(allTrue, `书清单逐着真值标记:全 1(书内子值是精确终局子差)`);
+  let mo2, mp2, discs = 0;
+  do {
+    [mo2, mp2] = rndPos(rng);
+    discs = 0;
+    for (let x = mo2 | mp2; x; x >>= 1n) discs += Number(x & 1n);
+  } while (discs < 20);
+  thinkBB(mo2, mp2, 6, 8);
+  const rn2 = X.engineRootN();
+  const trues = Array.from({ length: rn2 }, (_, i) => X.engineRootTrue(i));
+  ok(X.engineBook() === 0 && X.engineRootExact() === 0 && rn2 >= 1 && X.engineRootMove(0) >= 0,
+    `中局根清单(${discs} 子):exact=0 · n=${rn2}`);
+  ok(X.engineRootTrue(0) === 1,
+    `中局清单第 0 项(本轮最优)是真值(engineRootTrue(0)=${X.engineRootTrue(0)})`);
+  ok(trues.every((t) => t === 0 || t === 1),
+    `逐着真值标记合法:真值 ${trues.filter(Boolean).length} 项、界 ${trues.filter((t) => !t).length} 项(JS 随机只吃真值)`);
+  ok(X.engineRootMove(999) === -1, `越界下标防御:engineRootMove(999) = ${X.engineRootMove(999)}`);
+}
 
 // 节点预算必须真被遵守:给 2 万节点、标称 20 层
 const t0 = performance.now();

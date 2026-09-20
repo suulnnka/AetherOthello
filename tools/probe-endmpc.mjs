@@ -70,7 +70,6 @@ function thinkRaw(b, color, depth, end, budgetNodes) {
   const [a, bb, c, d] = toLoHi(b, color);
   X.engineClear();
   X.engineSetMpc(0, 0);
-  X.engineSetSeed(0, 0);
   const t0 = performance.now();
   X.engineThink(a, bb, c, d, depth, end, budgetNodes >>> 0, Math.floor(budgetNodes / 4294967296) >>> 0);
   return {

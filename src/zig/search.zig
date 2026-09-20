@@ -40,7 +40,8 @@ pub const F_UPPER: u8 = 3;
 pub const MAX_PLY: usize = 72;
 const MAX_MOVES: usize = 36; // 黑白棋单方最多 33 个合法着法
 
-/// 置换表:2^19 × 24 B = 12 MB。放 BSS,不占二进制体积(零页不进文件)。
+/// 置换表:2^20 × 24 B = 24 MB(2026-09-21 用户决策翻倍:特级档 60M 节点/手
+/// 对 2^19 槽是十几倍过载,表滚太快)。放 BSS,不占二进制体积(零页不进文件)。
 ///
 /// 条目直接存 **own/opp 两个 u64**,命中靠 16 字节全比对 —— 这是 Egaroucid/edax
 /// 的做法,好处有两层:
@@ -55,7 +56,7 @@ const MAX_MOVES: usize = 36; // 黑白棋单方最多 33 个合法着法
 ///   node_limit)一律 `threadlocal`:训练器多线程自对弈时每线程一份,无锁无竞争。
 ///   wasm 侧永远单线程,threadlocal 退化为普通全局,行为不受影响
 ///   (体积闸门与 probe-wasm 会把关这一点)。
-const TT_BITS = 19;
+const TT_BITS = 20;
 const TT_SIZE: usize = 1 << TT_BITS;
 const TT_MASK: u64 = TT_SIZE - 1;
 
@@ -523,34 +524,48 @@ pub fn solveExact(b: rules.Board) f32 {
     return search(b, @intCast(64 - b.discs() + 4), -INF, INF, 0, true);
 }
 
-// ── ⑪ 根同分随机化 ──────────────────────────────────────────────────────
-// 0 = 完全确定(探针/对打/测试的确定性不能破);≠0 时根节点**严格同分**的
-// 着法集合内用 xorshift64 挑一个。分数不参与随机 —— 只在值真正相等时生效。
-pub threadlocal var rng_state: u64 = 0;
+// ── 根着法清单(选着策略上移到 worker 的 JS 后的输出通道)──────────────
+// 最近一次**完整跑完**的根搜索(或开局书候选,由 engine.zig 填)的全部根着法
+// 与分数:分数降序、同分保持位号升序 —— 第 0 项即引擎的确定着法(探针/对打
+// 的确定性不破)。root_exact = 分数是否**精确**(开局书书值 / 残局完全求解):
+// JS 只对精确分数做容差/同分随机;中局启发式分数是零窗口 fail-soft 的**界**,
+// 与真值可差任意远,JS 必须只取第 0 项 —— 曾经引擎内 1 子容差的 pickTie 拿界
+// 当真值,中局大昏着(送角)整批进池、全档掉血(2026-09-20 事故);选着随即
+// 整体移出引擎,zig 不再有随机数。
+pub var root_n: u32 = 0;
+pub var root_moves: [MAX_MOVES]u8 = undefined;
+pub var root_scores: [MAX_MOVES]f32 = undefined;
+pub var root_exact: bool = false;
+/// 逐着「窗口内真值」标记:该分数是全窗/重搜定死的真值(1),还是零窗口
+/// fail-soft 的**界**(0,真值可能任意差)。JS 的中盘 ±1 / 终局同分随机只吃
+/// 真值项 —— 界值进池就是 zig 侧事故的重演(见上)。
+pub var root_true: [MAX_MOVES]bool = undefined;
+/// rootSearch 的暂存(按着法下标,与 root_v 平行;发布时随清单一起带走)
+var root_true_buf: [MAX_MOVES]bool = undefined;
 
-/// 根着法值容差:非首着走零窗口,fail-soft 返回的是**界**(可能偏离真值
-/// 一个截断量化步),严格等值几乎只剩 1 个成员;按 Egaroucid book 的
-/// accept_value 思想用 1 子容差取"≈最优"集合 —— 只影响开局多样性,
-/// 代价是偶尔放弃 <1 子的微小优势,对人机对弈无感。
-/// (历史注:自对弈主线书 genbook 曾放宽到 3;该链路已由 Egaroucid 精确书替代。)  
-pub var tie_tol: f32 = 1.0;
-
-fn pickTie(order: *const [MAX_MOVES]u32, rv: *const [MAX_MOVES]f32, moves: *const [MAX_MOVES]u6, n: u32, best_move: u6) u6 {
-    if (rng_state == 0) return best_move;
-    const best = rv[order[0]];
-    var ties: [MAX_MOVES]u6 = undefined;
-    var n_ties: u32 = 0;
-    for (0..n) |k| {
-        if (best - rv[order[k]] <= tie_tol) {
-            ties[n_ties] = moves[order[k]];
-            n_ties += 1;
-        }
+/// 发布一份根着法清单(稳定排序:分数降序,同分保持传入顺序 —— 调用方按
+/// 位号升序枚举,故同分时位号小者在前)。trues = 逐着真值标记。
+/// n=0 只清计数。
+pub fn publishRoot(mvs: []const u6, scs: []const f32, trues: []const bool, n: u32, exact: bool) void {
+    root_n = n;
+    root_exact = exact;
+    if (n == 0) return;
+    var order: [MAX_MOVES]u32 = undefined;
+    for (0..n) |i| order[i] = @intCast(i);
+    var i: u32 = 1;
+    while (i < n) : (i += 1) {
+        const oi = order[i];
+        const sc = scs[oi];
+        var j: i32 = @intCast(i - 1);
+        while (j >= 0 and scs[order[@intCast(j)]] < sc) : (j -= 1)
+            order[@intCast(j + 1)] = order[@intCast(j)];
+        order[@intCast(j + 1)] = oi;
     }
-    if (n_ties <= 1) return best_move;
-    rng_state ^= rng_state << 13;
-    rng_state ^= rng_state >> 7;
-    rng_state ^= rng_state << 17;
-    return ties[@intCast(rng_state % n_ties)];
+    for (0..n) |k| {
+        root_moves[k] = @intCast(mvs[order[k]]);
+        root_scores[k] = scs[order[k]];
+        root_true[k] = trues[order[k]];
+    }
 }
 
 // ── ⑥ MPC(Multi-ProbCut)────────────────────────────────────────────────
@@ -579,7 +594,7 @@ inline fn mpcSigma(empties: f32, d_verify: f32) f32 {
 /// 纯精确带下沿(空位数):>0 时 exact 求解在「空数 > 下沿+1」的节点允许
 /// 用中局 dv2 评估搜索做剪枝(概率性);0 = 关闭(exact 内永不 MPC,现状)。
 pub threadlocal var mpc_end_pure: i32 = 0;
-/// 本轮求解是否命中过尾盘剪枝(thinkSeeded 复位):命中过则 engineExact()
+/// 本轮求解是否命中过尾盘剪枝(think 复位):命中过则 engineExact()
 /// 必须报 0 —— 概率分不得当终局判决(UI 会显示凭空的"胜 N 子")。
 pub threadlocal var mpc_end_used: bool = false;
 /// σ_end(E):中局 dv2 搜索分 vs 精确解的零中心 SD 线性模型,已含 12% 余量。
@@ -631,7 +646,21 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
     ply_cnt[0] = n;
     mpc_root_depth = depth;
     if (n == 1) {
-        return .{ .move = @intCast(moves[0]), .score = 0, .depth = @intCast(depth), .only = true, .exact = exact };
+        // 唯一着法也真搜(2026-09-20 用户决策「就不能再搜一下吗」):照 k==0 的
+        // 首着调用搜子局面,score 是真搜索值(深度/节点照常累计),不再是占位 0。
+        // only 标记保留 —— 残局分支仍借它判断「该落子后完全求解拿精确值」。
+        const nb = rules.playMove(b, moves[0], flips[0]);
+        if (eval_u == null) {
+            ply_inc[1] = ply_inc[0];
+            inc.moveUpdate(&ply_inc[1], moves[0], flips[0], ply_inc[0].home_to_move);
+        }
+        const v = -search(nb, depth - 1, -INF, INF, 1, exact);
+        // 单着也入清单(worker 对 n≤1 不做随机,信息完整即可);全窗搜索 → 真值
+        const om = [1]u6{moves[0]};
+        const os = [1]f32{v};
+        const ot = [1]bool{true};
+        publishRoot(&om, &os, &ot, 1, exact);
+        return .{ .move = @intCast(moves[0]), .score = v, .depth = @intCast(depth), .only = true, .exact = exact };
     }
 
     // 首轮按静态分排;之后由调用方传入上一轮的 order
@@ -669,13 +698,25 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
             inc.moveUpdate(&ply_inc[1], moves[idx], flips[idx], ply_inc[0].home_to_move);
         }
         var v: f32 = undefined;
+        // v_true:返回值是否被搜索窗口定死为**真值** —— 窗口 (lo, INF) 下返回
+        // > lo 即精确;≤ lo 的是 fail-soft 上界,真值可以任意差。零窗口探测的
+        // 两个失败方向都只是界;只有升窗重搜 > 探测值才是真值。发布给 JS:
+        // 中盘 ±1 / 终局同分随机只吃真值项。
+        var v_true: bool = undefined;
         if (k == 0) {
             v = -search(nb, depth - 1, -beta, -alpha, 1, exact);
+            v_true = alpha < v; // 本轮首轮 alpha=-INF,恒真值;规则照写防将来改窗
         } else {
-            v = -search(nb, depth - 1, -alpha - eps(exact), -alpha, 1, exact);
-            if (alpha < v and v < beta) v = -search(nb, depth - 1, -beta, -v, 1, exact);
+            const probe = -search(nb, depth - 1, -alpha - eps(exact), -alpha, 1, exact);
+            v = probe;
+            v_true = false; // 零窗口:fail-low 是上界,fail-high 也只是下界
+            if (alpha < probe and probe < beta) {
+                v = -search(nb, depth - 1, -beta, -probe, 1, exact);
+                v_true = v > probe; // 重搜窗口 (probe, INF):> probe 即真值
+            }
         }
         root_v[idx] = v;
+        root_true_buf[idx] = v_true;
         if (v > alpha) alpha = v;
         if (aborted) break;
     }
@@ -691,6 +732,9 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
         order[@intCast(j + 1)] = oi;
     }
     const best = order[0];
+    // 只在整轮完整跑完时发布清单:中断轮里未搜到的着法 root_v 是上一轮的
+    // 陈旧值,发出去就是拿界当真值(选着策略在 JS,吃 engineRoot* 导出)。
+    if (!aborted) publishRoot(moves[0..n], root_v[0..n], root_true_buf[0..n], n, exact);
     return .{
         .move = @intCast(moves[best]),
         .score = root_v[best],
@@ -701,15 +745,12 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
 
 /// 迭代加深主入口。node_budget = 0 表示不限;超预算时返回**上一个完整深度**的结果
 /// (半途而废的那轮结果一律丢弃 —— 零窗口搜索被打断时 root_v 是有偏的)。
+/// 选着(容差/同分随机)不在这里:引擎只保证 root_* 清单与返回值一致,
+/// 策略住在 worker 的 JS 里(见文件头「根着法清单」)。
 pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u64) Result {
-    return thinkSeeded(b, depth_max, endgame_empty, node_budget, 0);
-}
-
-pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u64, seed: u64) Result {
     if (!tt_ready) clearTT();
     stability.ensureInit();
     inc.ensureTables();
-    rng_state = seed;
     nodes = 0;
     evals = 0;
     aborted = false;
@@ -790,7 +831,6 @@ pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budg
             return last;
         }
         r.endgame = true;
-        if (!aborted) r.move = @intCast(pickTie(&order, &rv, &ply_moves[0], ply_cnt[0], @intCast(r.move)));
         return r;
     }
 
@@ -820,6 +860,5 @@ pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budg
         r.nodes = nodes;
         return r;
     }
-    res.move = @intCast(pickTie(&order, &rv, &ply_moves[0], ply_cnt[0], @intCast(res.move)));
     return res;
 }

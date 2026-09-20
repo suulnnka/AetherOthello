@@ -110,10 +110,12 @@ a.wbtn { color: var(--text-2); }
 
 .page-foot {
   flex: none; font-size: 12px; color: rgba(255, 255, 255, 0.55);
-  user-select: none; -webkit-user-select: none; text-align: center;
+  user-select: none; -webkit-user-select: none;
+  align-self: stretch;   /* 容器是居中列布局,不撑开就分不了栏 */
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; row-gap: 4px;
 }
 html[data-theme="light"] .page-foot { color: rgba(30, 42, 80, 0.55); }
-.page-foot .sep { margin: 0 8px; }
 .page-foot a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ============ 应用框架(AppKit)============ */
@@ -201,14 +203,23 @@ html[data-theme="light"] .page-foot { color: rgba(30, 42, 80, 0.55); }
   content: ""; position: absolute; inset: 2px; border-radius: 4px;
   border: 2px solid rgba(255, 235, 130, 0.85);
 }
+/* 棋子两层结构:外壳 .rv-box 只管「落子入场」(rvDrop 直接落下)与 3D 透视;
+ * 内芯 .rv-piece 正反两面异色(.rv-pf.b 黑面 / .rv-pf.w 白面,背面各自隐藏),
+ * 黑面朝前 = 黑子,整体转 180° 白面到前 = 白子。翻面 = 类切换驱动的 transform
+ * 过渡 —— 元素不重建,只有真正被翻的子会动;新落的子不播翻面。
+ * (与 webos 应用侧 js/apps/reversi/reversi.css 同一方案) */
+.rv-box { animation: rvDrop 0.22s ease-out; perspective: 260px; }
 .rv-piece {
-  width: 42px; height: 42px; border-radius: 50%;
-  animation: rvFlip 0.35s ease;
+  width: 42px; height: 42px; position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.45s cubic-bezier(0.3, 0.6, 0.3, 1);
 }
-.rv-piece.just { box-shadow: 0 0 0 3px rgba(255, 235, 130, 0.7); }
-.rv-piece.b { background: radial-gradient(circle at 35% 30%, #4a4a4a, #111); }
-.rv-piece.w { background: radial-gradient(circle at 35% 30%, #ffffff, #c9c9c9); }
-@keyframes rvFlip { from { transform: rotateY(90deg) scale(0.8); } }
+.rv-piece.w { transform: rotateY(180deg); }
+.rv-pf { position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; }
+.rv-pf.b { background: radial-gradient(circle at 35% 30%, #4a4a4a, #111); }
+.rv-pf.w { background: radial-gradient(circle at 35% 30%, #ffffff, #c9c9c9); transform: rotateY(180deg); }
+.rv-piece.just .rv-pf { box-shadow: 0 0 0 3px rgba(255, 235, 130, 0.7); }
+@keyframes rvDrop { from { transform: translateY(-18px) scale(1.15); opacity: 0; } }
 .rv-hint-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.65); }
 .rv-count {
   display: inline-grid; place-items: center;

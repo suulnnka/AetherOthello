@@ -12,7 +12,9 @@
  * 输出(入库):
  *   book/positions.jsonl  规范化局面(8 对称取最小键)+ 值 + 最佳着法
  *                         + 挂上的开局名
- *   book/openings.json    回放验证通过的开局名目录(含命中标记)
+ *   book/openings.json    开局名目录 —— 只收终局面命中开局库的条目(书外的
+ *                         名字运行时不会出现,不收;完整原始目录在
+ *                         openings-catalog.json 备份里)
  *
  * 用法:node tools/make-book.mjs <web_book.csv 路径> [--max-discs 14]
  * ============================================================ */
@@ -160,39 +162,31 @@ function englishOf(o) {
     return { name: alt, aliases: (o.aliases ?? []).filter((a) => a !== alt && asciiName(a)) };
   return null;
 }
+/* 目录只收**命中开局库**的条目(用户决策 2026-09-20:开局库里不会出现的
+ * 名字没有存在价值):duplicate_of 重选项、回放非法、终局面被 ≤14 子 / |值|≤4
+ * 滤出书外的都直接弃 —— 它们的名字在运行时任何路径都不会显示。挂名逻辑
+ * 不变:命中才 pos.names.push。 */
 const openingsOut = [];
-let valid = 0, hit = 0, merged = 0, dropped = 0;
+let hit = 0, merged = 0, dropped = 0, outOfBook = 0;
 for (const o of catalog.openings) {
   const en = englishOf(o);
   if (!en) { dropped++; continue; }
   const moves = o.moves.map((m) => m.toLowerCase());
   // duplicate_of:与已有条目规范化终局面相同的重复项(如 オセロWiki「牛」修正后
-  // 与 Gatliff Cow 同局面)。名字经目标条目保留,不再挂名。
-  if (o.duplicate_of) {
-    merged++;
-    openingsOut.push({ name: en.name, aliases: en.aliases,
-      moves, family: o.family ?? '', valid: true, in_book: false, duplicate_of: o.duplicate_of });
-    continue;
-  }
+  // 与 Gatliff Cow 同局面)。名字经目标条目保留,不单独进目录。
+  if (o.duplicate_of) { merged++; continue; }
   const r = replay(moves);
-  if (!r.ok) {
-    openingsOut.push({ name: en.name, aliases: en.aliases,
-      moves, family: o.family ?? '', valid: false, in_book: false, note: r.err });
-    continue;
-  }
-  valid++;
+  if (!r.ok) { outOfBook++; continue; }
   const [key] = canonicalize(r.board);
   const pos = positions.get(key);
-  const rec = { name: en.name, aliases: en.aliases,
-    moves, family: o.family ?? '', discs: moves.length + 4, valid: true, in_book: !!pos };
-  if (pos) {
-    hit++;
-    pos.names ??= [];
-    // 同一开局在目录里常以 4 个对称首手变体各挂一条,规范化后落到同一局面 → 去重
-    if (!pos.names.includes(rec.name)) pos.names.push(rec.name);
-    for (const a of rec.aliases) if (!pos.names.includes(a)) pos.names.push(a);
-  }
-  openingsOut.push(rec);
+  if (!pos) { outOfBook++; continue; }   // 终局面不在开局库 → 名字不会出现,弃
+  hit++;
+  pos.names ??= [];
+  // 同一开局在目录里常以 4 个对称首手变体各挂一条,规范化后落到同一局面 → 去重
+  if (!pos.names.includes(en.name)) pos.names.push(en.name);
+  for (const a of en.aliases) if (!pos.names.includes(a)) pos.names.push(a);
+  openingsOut.push({ name: en.name, aliases: en.aliases,
+    moves, family: o.family ?? '', discs: moves.length + 4 });
 }
 
 /* ── 2b. OCD 英文目录:按局面图案直接挂名(第三来源)────────────── */
@@ -231,15 +225,21 @@ if (OCD_DIR) {
 
 /* ── 2c. 生成 Zig 侧开局书 blob(src/zig/book-openings.bin)───────────────
  * 数据:保留局面 = 初始局面起的 BFS 最短路径(token 序列;token = 线性格号
- * 0..63,过手 = 64)+ 精确值 + 最佳着法集(含根:零长路径 = 首手书内入口)。
+ * 0..63,过手 = 64)+ 精确值 + 最佳着法集(含根:零长路径 = 首手书内入口)
+ * + 开局名(positions.jsonl 的 names 拼接,「 / 」分隔 —— 同一局面常有多个
+ * 命名开局经换位汇到一起,只留一个会瞎报;engine.zig 零拷贝直读,UI 显示
+ * 「开局库 · 名字 · 估值」,同 chess 的开局库行)。
  * 格式:**字节对齐**(用户决策 2026-09-20)。最终产物经 gzip 传输/计费,
  * DEFLATE 按字节匹配:字节对齐的小字母表重复 token 对 LZ77/Huffman 友好,
  * 6 bit 打包反而打散字节边界抬高熵;解码侧也免去位读取器。
  * 布局:u16 条数 LE + u8 passTok(=64);条目按路径字典序排序,每条 =
  *   share u8(与上一条共享前缀长)+ slen u8 + slen×u8 token
- *   + (value+8) u8 + bcnt u8 + bcnt×u8 token
+ *   + (value+8) u8 + bcnt u8 + bcnt×u8 token + nameRef u8
+ *   (nameRef = 名字池下标+1,0 = 无名)
+ * 尾接名字池:u16 池大小 LE + 每串 u8 len + len×u8 ASCII(62 串、最长 84 B,
+ * 都在 u8 域内;名字串按条目序首次出现入池,确定性)。
  * 前缀共享把 ~9K token 压到 ~1.4K。自检:独立解码回放,校验终局面键、
- * 值一致与最佳着法合法性,不过就抛错。 */
+ * 值一致与最佳着法合法性,不过就抛错;名字段单独对 positions.jsonl 复核。 */
 const STD_INITIAL = (() => {
   const b = new Array(64).fill('-');
   b[idxOf(3, 3)] = 'O'; b[idxOf(4, 4)] = 'O'; // d4 e5
@@ -346,7 +346,7 @@ for (const [key, node] of nodes) {
   let ok = best.length > 0;
   for (const t of best) if (!flipFor(node.boardMy, t).length) ok = false;
   if (!ok) { badBest++; continue; }
-  entries.push({ key, path: toks, value: positions.get(key).value, best: best.slice(0, 255) });
+  entries.push({ key, path: toks, value: positions.get(key).value, best: best.slice(0, 255), names: positions.get(key).names });
 }
 if (badBest) throw new Error(`best 映射合法性失败 ${badBest} 条(帧推导有误)`);
 entries.sort((a, b) => {
@@ -354,23 +354,44 @@ entries.sort((a, b) => {
   for (let i = 0; i < n; i++) if (a.path[i] !== b.path[i]) return a.path[i] - b.path[i];
   return a.path.length - b.path.length;
 });
+
+// 名字池:同局面多名「 / 」拼接;按条目序首次出现入池(确定性),u8 下标域内。
+const namePool = new Map(); // 拼接串 → 池下标(1 起)
+const nameRefOf = (names) => {
+  if (!names || !names.length) return 0;
+  const s = names.join(' / ');
+  if (!/^[\x20-\x7e]*$/.test(s)) throw new Error(`开局名非 ASCII:${JSON.stringify(s)}`);
+  if (s.length > 255) throw new Error(`开局名超 u8 长度(${s.length}):${JSON.stringify(s)}`);
+  if (!namePool.has(s)) namePool.set(s, namePool.size + 1);
+  return namePool.get(s);
+};
+const refs = entries.map((e) => nameRefOf(e.names));
+if (namePool.size > 255) throw new Error(`名字池超 u8 下标域(${namePool.size})`);
+
 const blobArr = [entries.length & 0xFF, (entries.length >> 8) & 0xFF, PASS_TOK];
 let tokFlat = 0, tokShared = 0, prevPath = [];
-for (const e of entries) {
+for (let i = 0; i < entries.length; i++) {
+  const e = entries[i];
   let share = 0;
   while (share < prevPath.length && share < e.path.length && prevPath[share] === e.path[share]) share++;
   const suffix = e.path.slice(share);
   if (share > 255 || suffix.length > 255) throw new Error('前缀/后缀超出 u8 范围');
   tokFlat += e.path.length; tokShared += suffix.length;
-  blobArr.push(share, suffix.length, ...suffix, e.value + 8, e.best.length, ...e.best);
+  blobArr.push(share, suffix.length, ...suffix, e.value + 8, e.best.length, ...e.best, refs[i]);
   prevPath = e.path;
 }
+// 名字池(u16 数量 + 每串 u8 len + ASCII 字节)拼在条目区之后
+const poolStrs = [...namePool.keys()];
+blobArr.push(poolStrs.length & 0xFF, (poolStrs.length >> 8) & 0xFF);
+for (const s of poolStrs) blobArr.push(s.length, ...[...s].map((ch) => ch.charCodeAt(0)));
 const blob = Buffer.from(blobArr);
 
-// ⑤ 自检:独立解码回放 —— 终局面必须在保留集、值一致、最佳着法合法
+// ⑤ 自检:独立解码回放 —— 终局面必须在保留集、值一致、最佳着法合法、
+// 名字与 positions.jsonl 逐条对上(nameRef 复用 refs[] 就不是独立解码了)
 {
   let off = 3;
   let prev = [];
+  const decodedNames = [];
   for (let i = 0; i < entries.length; i++) {
     const share = blob[off++], slen = blob[off++];
     const path = prev.slice(0, share);
@@ -379,6 +400,7 @@ const blob = Buffer.from(blobArr);
     const bcnt = blob[off++];
     const best = [];
     for (let k = 0; k < bcnt; k++) best.push(blob[off++]);
+    const nameRef = blob[off++];
     const b = STD_INITIAL.slice();
     let color = 'X';
     for (const tok of path) {
@@ -418,7 +440,22 @@ const blob = Buffer.from(blobArr);
         throw new Error(`自检失败:第 ${i} 条 ${JSON.stringify({ path, best, tok: t, treeLegal: tn ? tn.legal : null, treeBest: tn ? tn.best : null, realLegal, board: b.join('') })}`);
       }
     }
+    decodedNames.push({ key, nameRef });
     prev = path;
+  }
+  // 名字池解码 + 与 positions.jsonl 复核
+  const poolN = blob[off] | (blob[off + 1] << 8);
+  off += 2;
+  const pool = [];
+  for (let i = 0; i < poolN; i++) {
+    const len = blob[off++];
+    pool.push(blob.subarray(off, off + len).toString('latin1'));
+    off += len;
+  }
+  for (const { key, nameRef } of decodedNames) {
+    const want = positions.get(key).names?.join(' / ') ?? '';
+    const got = nameRef ? pool[nameRef - 1] : '';
+    if (got !== want) throw new Error(`自检失败:名字不符 ${JSON.stringify({ key, want, got })}`);
   }
   if (off !== blob.length) throw new Error(`自检失败:长度不匹配(${off} vs ${blob.length})`);
 }
@@ -429,8 +466,10 @@ const posSorted = [...positions.values()].sort((a, b) => a.discs - b.discs || a.
 fs.writeFileSync(path.join(bookDir, 'positions.jsonl'),
   posSorted.map((p) => JSON.stringify({ board: p.board, discs: p.discs, value: p.value, best: p.best, ...(p.names ? { names: p.names } : {}) })).join('\n') + '\n');
 fs.writeFileSync(path.join(bookDir, 'openings.json'),
-  // 来源只保留 ASCII 字段(日文站点的原版标题留在 openings-catalog.json 备份里)
-  JSON.stringify({ schema: 'aetherothello-opening-names.v0', note: catalog.license_note,
+  // 来源只保留 ASCII 字段(日文站点的原版标题留在 openings-catalog.json 备份里);
+  // v1:只收命中开局库的条目,in_book/valid/duplicate_of 标记随全量目录一起退役
+  JSON.stringify({ schema: 'aetherothello-opening-names.v1', note: catalog.license_note,
+    scope: '仅收录终局面命中开局库(≤14 子、|值|≤4)的开局;书外条目与日文原名见 openings-catalog.json',
     sources: catalog.sources.map((s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v === 'string' ? asciiName(v) : true))),
     openings: openingsOut }, null, 2));
 
@@ -438,10 +477,10 @@ const named = posSorted.filter((p) => p.names).length;
 const withBest = posSorted.filter((p) => p.best.length).length;
 console.log(`Egaroucid 书:读 ${rawRows} 行,≤${MAX_DISCS} 子 ${keptRows} 行 → 规范化去重 ${positions.size} 局面(合并 ${dupMerged})`);
 console.log(`  带最佳着法 ${withBest};带开局名 ${named}`);
-console.log(`开局目录:${catalog.openings.length} 条,英文名采用 ${openingsOut.length} 条(纯日文弃用 ${dropped}),回放合法 ${valid},重复合并 ${merged},终局面命中书内 ${hit}`);
+console.log(`开局目录:${catalog.openings.length} 条,英文名采用 ${catalog.openings.length - dropped} 条(纯日文弃用 ${dropped}),重复合并 ${merged},终局面命中书内 ${hit}(书外弃 ${outOfBook},目录只收命中项)`);
 if (OCD_DIR) {
   const namedAfter = [...positions.values()].filter((p) => p.names).length;
   console.log(`OCD 目录:${ocdPatterns} 图案,命中书内局面 ${ocdHit},新增名字 ${ocdNewNames},挂名局面 ${namedBeforeOcd} → ${namedAfter}`);
 }
-console.log(`开局书 blob:${entries.length} 条(不可达跳过 ${unreachable}),路径 token 平铺 ${tokFlat} → 前缀共享后 ${tokShared},raw ${blob.length} B / gzip ${zlib.gzipSync(blob).length} B → src/zig/book-openings.bin`);
+console.log(`开局书 blob:${entries.length} 条(不可达跳过 ${unreachable}),路径 token 平铺 ${tokFlat} → 前缀共享后 ${tokShared},名字池 ${poolStrs.length} 串,raw ${blob.length} B / gzip ${zlib.gzipSync(blob).length} B → src/zig/book-openings.bin`);
 console.log(`✓ 已写 book/positions.jsonl(${posSorted.length} 局面)与 book/openings.json`);
