@@ -193,20 +193,84 @@ fn bookInit() void {
     bk_ready = true;
 }
 
+/// 规范化局面查表 → 槽位(未命中 null)
+fn bookSlot(c: Canon) ?usize {
+    var s = bookHash(c.own, c.opp);
+    while (true) {
+        if (bk_moves[s] == 0) return null;
+        if (bk_key_own[s] == c.own and bk_key_opp[s] == c.opp) return s;
+        s = @intCast((s + 1) & BK_MASK);
+    }
+}
+
+/// 值容差:书着法选择的多样性带宽(子数)。0 = 只走最优。
+const BOOK_TOL: i8 = 2;
+
 /// 命中开局书则返回着法,*val_out 带出书内精确值(行棋方视角,子差)。
-/// depth_max ≥ 4 才用(入门/初级保持原味);rng_state ≠ 0 时在书内最佳着法
-/// 里随机(⑪ 的种子),否则取最低位(确定)。
+/// depth_max ≥ 4 才用(入门/初级保持原味)。
+///
+/// 选着策略(2026-09-20 用户决策):**值容差 + 加权随机** —— 枚举合法着法,
+/// 以子局面的书值给着法估值(我方结果 = −子值),值 ≥ 最优−tol 的入池,
+/// 权重 = 1 << (值−下沿):值好的着法比例更高,近优的也保留(开局多样性,
+/// 等值的垂直/斜线都能出现,不再每局平行)。子局面不在书内的着法不入池
+/// (出书无法估值 —— 标注 best 指向被 ±4 滤掉子的情况由此自然化解);
+/// 池空(整个着法层都不在书)回退标注 best 掩码。
+/// rng_state = 0 完全确定(取最高值、并列位号最小);≠ 0 加权随机。
 fn bookMove(b: rules.Board, depth_max: u32, val_out: *i8) ?u6 {
     if (!bk_ready or depth_max < 4) return null;
     if (b.discs() > BOOK_MAX_DISCS) return null;
     const c = canonOf(b);
-    var s = bookHash(c.own, c.opp);
-    while (true) {
-        if (bk_moves[s] == 0) return null;
-        if (bk_key_own[s] == c.own and bk_key_opp[s] == c.opp) break;
-        s = @intCast((s + 1) & BK_MASK);
+    const s = bookSlot(c) orelse return null;
+    val_out.* = bk_val[s];
+
+    var mvs: [36]u6 = undefined; // 黑白棋单方最多 33 个合法着法(同 search)
+    var outs: [36]i8 = undefined;
+    var nm: usize = 0;
+    var best_out: i8 = -127;
+    var legal = rules.moves(b);
+    while (legal != 0) {
+        const sq: u6 = @intCast(@ctz(legal));
+        legal &= legal - 1;
+        const child = rules.play(b, sq);
+        if (bookSlot(canonOf(child))) |cs| {
+            const out: i8 = -bk_val[cs]; // 子局面轮对方,取负为我方结果
+            mvs[nm] = sq;
+            outs[nm] = out;
+            nm += 1;
+            if (out > best_out) best_out = out;
+        }
     }
-    // 掩码换算回查询朝向:规范帧 k 格 → 查询帧 perm[inv(t)][k]
+    if (nm > 0) {
+        const floor_v: i8 = best_out - BOOK_TOL;
+        var pool: [36]u6 = undefined;
+        var wgt: [36]u32 = undefined;
+        var np: usize = 0;
+        for (0..nm) |i| {
+            if (outs[i] >= floor_v) {
+                pool[np] = mvs[i];
+                wgt[np] = @as(u32, 1) << @intCast(outs[i] - floor_v);
+                np += 1;
+            }
+        }
+        val_out.* = best_out; // 报位置值(按子局面推得,比标注值更自洽)
+        if (search.rng_state != 0) {
+            var total: u32 = 0;
+            for (0..np) |i| total += wgt[i];
+            var pick: u32 = @intCast(search.rng_state % total);
+            for (0..np) |i| {
+                if (pick < wgt[i]) return pool[i];
+                pick -= wgt[i];
+            }
+            return pool[np - 1];
+        }
+        var bi: usize = 0;
+        for (0..np) |i| {
+            if (wgt[i] > wgt[bi]) bi = i; // mvs 升序 → 并列最优取位号最小
+        }
+        return pool[bi];
+    }
+
+    // 池空:回退标注 best 掩码(换算回查询朝向后按 rng 选)
     var m: u64 = 0;
     var mm = bk_moves[s];
     while (mm != 0) {
@@ -216,7 +280,6 @@ fn bookMove(b: rules.Board, depth_max: u32, val_out: *i8) ?u6 {
     }
     m &= rules.moves(b);
     if (m == 0) return null; // 换算后不合法(构造上不该发生,防御)
-    val_out.* = bk_val[s];
     if (search.rng_state != 0) {
         const cnt: u64 = @popCount(m);
         var pick = search.rng_state % cnt;

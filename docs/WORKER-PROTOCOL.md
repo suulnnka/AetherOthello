@@ -87,6 +87,9 @@ git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/comp
   opp: [lo, hi],                    // 对方位板
   level,                            // **本引擎**难度表的下标(见上;跨实现不可比)
   depth,                            // 可选:覆盖该档位的搜索深度上限(见下)
+  seed,                             // 可选:随机种子(number,≤2^53;0/缺省 = 完全确定)。
+                                    //   开局书容差选着(值好多占、近优保留)与根同分
+                                    //   随机化都由它驱动 —— UI 应每局随机、同局复用
   empties,                          // 64 - 双方子数(state 回包里有,UI 透传即可)
 }
 ```

@@ -126,6 +126,8 @@ let moves = [];          // 走子历史 { color, r, c, flips },悔棋按它还�
 let lastMove = null;
 let searchGen = 0;       // 搜索代数:作废在途请求用的请求号(见 killWorker)
 let thinking = false;
+/* 每局种子(与 webos 应用同款):开局书容差选着 + 根同分随机化;新对局重掷 */
+let gameSeed = 1 + Math.floor(Math.random() * 2 ** 47);
 /* 局面缓存(全部来自最近一次 state 回包,按当前行棋方查询) */
 let legalNow = new Map();
 let countsCache = { black: 2, white: 2 };
@@ -163,8 +165,8 @@ function showSearch(res) {
   const sc = (s) => (s >= 0 ? `${me} +${s.toFixed(1)}` : `${opp} +${(-s).toFixed(1)}`);
   if (res.only) { infoL.textContent = `唯一合法步 ${moveName(res.move)},无需搜索`; return; }
   /* 开局书命中:没搜索(depth=0、nodes=0),来源只能信回包的 book 字段。
-   * 书有名字显示名字,黑白棋的书无族名 → 显示估值 */
-  if (res.book) { infoL.textContent = res.name ? `开局书 · ${res.name}` : `开局书 · ${sc(res.score)}`; return; }
+   * 显示格式与 webos 应用对齐(书值是行棋方视角的精确终局子差) */
+  if (res.book) { infoL.textContent = `开局书 · 最佳 ${moveName(res.move)} · 书值 ${sc(res.score)}`; return; }
   const tail = ` · 节点 ${fmtN(res.nodes)} · ${fmtT(res.ms)}${fmtNps(res)}`;
   if (res.greedy) {
     infoL.textContent = `初级 贪心选点 ${moveName(res.move)} · 评估 ${sc(res.score)}${tail}`;
@@ -272,10 +274,18 @@ async function refresh() {
 /** 落子裁决:现场向 Worker 要一次新鲜局面,缓存只管提示渲染 */
 async function humanMove(r, c) {
   if (gameOver || (vsAI && turn !== humanColor)) return;
+  /* 按下的瞬间就撤提示点:裁决要等 state 回包(首手还含引擎冷启动),旧提示
+   * 点会一直亮到回包落地。只对提示格生效 —— 误点非法格时提示点随后照常回来。 */
+  if (legalNow.has(r * 8 + c)) {
+    for (const cell of boardEl.querySelectorAll('.rv-cell.hint')) cell.classList.remove('hint');
+    for (const dot of boardEl.querySelectorAll('.rv-hint-dot')) dot.remove();
+  }
   const color = turn;
   const gen = searchGen;
   const st = await fetchState(color);
-  if (gen !== searchGen) return;               // 期间换了局
+  /* turn 复查:await 期间若另一手已落地(连点两格,两次裁决都带着旧盘面),
+   * 这一次必须作废 —— 否则同一方能连落两手脏子。gen 只盯新对局/悔棋/换边。 */
+  if (gen !== searchGen || turn !== color) return;
   applyState({ ...st, side: color });          // 顺手把提示/子数缓存校准
   const flip = st.flips[st.moves.indexOf(r * 8 + c)];
   if (!flip) return;                           // 非法落点
@@ -398,7 +408,7 @@ async function requestThink() {
     worker.postMessage({
       type: 'think', id: pending.id,
       own: halfs(board, turn), opp: halfs(board, other(turn)),
-      level: levelIdx, empties,
+      level: levelIdx, empties, seed: gameSeed,
     });
     infoL.textContent = `搜索中…(${lvName()})`;
   });
@@ -478,6 +488,7 @@ function switchSide() {
 /* ---------- 工具栏(结构与 webos 应用一致)---------- */
 const newBtn = el('button', { class: 'btn primary', title: '重新开始一局', onClick: () => {
   killWorker();
+  gameSeed = 1 + Math.floor(Math.random() * 2 ** 47);
   board = initBoard(); turn = 'b'; gameOver = false; lastMove = null; moves = [];
   infoL.textContent = '';
   refresh();
