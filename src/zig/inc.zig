@@ -72,7 +72,7 @@ pub fn initTables() void {
 }
 
 /// 懒建表:任何线程首次走增量路径前调一次即可(threadlocal 表,线程各自建)。
-/// 挂在 search 的公开入口上 —— train 的 A/B 分片线程、genbook 这类"没经过
+/// 挂在 search 的公开入口上 —— train 的 A/B 分片线程这类"没经过
 /// engineInit 的调用方"因此不需要各自接初始化。
 pub inline fn ensureTables() void {
     if (!tables_ready) initTables();
@@ -118,6 +118,8 @@ pub fn moveUpdate(s: *State, sq: u6, f: u64, by_home: bool) void {
 
 /// 落子增量的精确逆(撤销用)。存在意义:如果 ④ 落地时选择
 /// "单工作缓冲 + undo"而不是 per-ply 快照,可逆性是前提。
+/// (该方案在 search.zig 实测过:行为逐位一致但慢 ~15%,已否决留档;
+/// undoMoveUpdate 与其单测保留,undo 语义本身仍被 dfsCheck 依赖。)
 pub fn undoMoveUpdate(s: *State, sq: u6, f: u64, by_home: bool) void {
     addCell(s, sq, if (by_home) -1 else -2);
     const fd: i32 = if (by_home) 1 else -1;

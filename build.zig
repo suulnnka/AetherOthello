@@ -46,23 +46,6 @@ pub fn build(b: *std.Build) void {
     st_train.dependOn(&inst_train.step);
     st_train.dependOn(&run_train.step);
 
-    // ── 开局书生成器(原生,⑩):宗师自对弈 → src/zig/book.bin ──────
-    const genbook = b.addExecutable(.{
-        .name = "genbook",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/zig/genbook.zig"),
-            .target = target,
-            .optimize = .ReleaseFast,
-        }),
-    });
-    const inst_genbook = b.addInstallArtifact(genbook, .{});
-    b.getInstallStep().dependOn(&inst_genbook.step);
-    const run_genbook = b.addRunArtifact(genbook);
-    if (b.args) |args| run_genbook.addArgs(args);
-    const st_genbook = b.step("genbook", "自对弈生成开局书 book.bin");
-    st_genbook.dependOn(&inst_genbook.step);
-    st_genbook.dependOn(&run_genbook.step);
-
     // ── wasm 引擎 ─────────────────────────────────────────────────
     // ReleaseFast 而不是 ReleaseSmall:多出来的几百字节代码换搜索速度值。
     // ⚠ `strip = true` 不是可选项:不 strip 的话 DWARF/name 这些 custom section

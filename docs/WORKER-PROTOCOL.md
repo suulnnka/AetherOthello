@@ -141,6 +141,9 @@ main(wasm 通道)当前是 worker 内的轻量 JS 位板遍历(wasm 暂无 legal
   depthMax,    // 该档位标称深度(本引擎难度表里 level 那一项的 depth)
   exact,       // score 是否为**精确终局子差**
   nodes,       // 节点数
+  book,        // 开局书命中(命中时 depth=0、nodes=0、score=书内精确值,行棋方
+                //   视角);可选字段,无书实现恒为 false —— UI 靠它标「开局书」
+                //   来源,别拿 depth=0 外推(书着与贪心在 depth 上同形)
   empties,     // 原样回传
   ms,          // 耗时(毫秒,含引擎内部搜索;不含消息往返)
   engine,      // 信息字段:实现名('js' / 'wasm'),不参与断言

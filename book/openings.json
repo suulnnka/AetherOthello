@@ -1,0 +1,7594 @@
+{
+  "schema": "aetherothello-opening-names.v0",
+  "note": "This is a researched index/derived data structure. Check original sites before redistributing at scale; source URLs are preserved per entry.",
+  "sources": [
+    {
+      "id": "ultraboardgames-gatliff-catalog",
+      "title": "Catalog of Opening Moves for Othello",
+      "url": "https://www.ultraboardgames.com/othello/opening-moves.php",
+      "notes": "Robert Gatliff compiled named opening catalog; black moves are capitalized in the source."
+    },
+    {
+      "id": "hkoa-opening-list",
+      "title": "Opening List",
+      "url": "https://www.othello.hk/opening-list/",
+      "notes": "Hong Kong Othello Association opening tree/list, used as corroborating hierarchy/source."
+    },
+    {
+      "id": "greenothello-opening-dic",
+      "title": "Opening Dic",
+      "url": "https://greenothello.com/content/toolkit/opening.php",
+      "notes": "Large hierarchical dictionary of contemporary opening names, used as name/hierarchy reference."
+    },
+    {
+      "id": "othello-wiki-jouseki",
+      "url": "https://wikiwiki.jp/othello/%E6%A3%8B%E8%AD%9C/%E5%AE%9A%E7%9F%B3"
+    },
+    {
+      "id": "othlog-jouseki",
+      "url": "https://othlog.hasera.net/jouseki/",
+      "notes": "Japanese opening-book style list with named sequences and evaluation notes."
+    }
+  ],
+  "openings": [
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "f3",
+        "e3",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "c5",
+        "e3",
+        "f3",
+        "c4",
+        "d3",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "F.A.T.Draw",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3",
+        "e6",
+        "e7",
+        "d7",
+        "g6",
+        "f8",
+        "f7",
+        "g5",
+        "h6",
+        "h4",
+        "g4",
+        "h3",
+        "h5",
+        "h7"
+      ],
+      "family": "perpendicular",
+      "discs": 25,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "EJ",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e6",
+        "d7",
+        "c7"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Diagonal Opening",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Parallel Opening",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f4"
+      ],
+      "family": "parallel",
+      "discs": 6,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Wing Variation",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "d3",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Semi-Wing Variation",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "c4",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Mimura",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Inoue",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bhagat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d7"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Shaman",
+      "aliases": [
+        "Danish"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "IAGO",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "e6",
+        "f6"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "c4",
+        "c6",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "c4",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "g5",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c3",
+        "f4",
+        "c6",
+        "d3",
+        "e3",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c3",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c3",
+        "g4",
+        "c6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat (Continuation)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "c6",
+        "c5",
+        "d7",
+        "d3",
+        "b4",
+        "c3",
+        "e3",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Swallow",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ralle",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Horse",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "g5"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Berner",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "f3",
+        "c2",
+        "b4",
+        "b3"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Italian",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Sakaguchi",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c4",
+        "d3",
+        "c5",
+        "f4",
+        "e3",
+        "f3",
+        "c2",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rotating Flat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Flat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Murakami Variation",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4",
+        "c4",
+        "g6"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rotating Flat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g4",
+        "c4",
+        "g5",
+        "c3",
+        "f7",
+        "d2",
+        "e7",
+        "f2"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Brightstein",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "g5",
+        "c3",
+        "b4",
+        "e2"
+      ],
+      "family": "perpendicular",
+      "discs": 20,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-Birth",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Greenberg",
+      "aliases": [
+        "Dawg"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "e7"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-Tamenori-Kling",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4",
+        "c3"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-birdie",
+      "aliases": [
+        "Rose-Tamenori"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c5",
+        "f4",
+        "e3",
+        "c6",
+        "d3",
+        "f6",
+        "e6",
+        "d7",
+        "g3",
+        "c4",
+        "b4"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "g5",
+        "e2",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d3",
+        "f3",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "b5",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d3",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d7",
+        "f3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d6",
+        "f3",
+        "c4",
+        "c5",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g3",
+        "f3",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g3",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "f3",
+        "g4",
+        "g6",
+        "g3",
+        "d6",
+        "f7",
+        "h5",
+        "h4",
+        "h3",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "d6",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3",
+        "g4",
+        "f3",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3",
+        "g4",
+        "f3",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c7",
+        "c6",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c7",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "f4",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "c6",
+        "d7",
+        "f7",
+        "c7",
+        "f4",
+        "g6",
+        "e8",
+        "d8",
+        "c8",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "c7",
+        "d7",
+        "c6",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "c7",
+        "d7",
+        "c6",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "g7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "f7",
+        "e3",
+        "d7",
+        "e7",
+        "c6",
+        "c5",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "e7",
+        "g5",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "e7",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "e7",
+        "g5",
+        "g6",
+        "e3",
+        "c5",
+        "c6",
+        "d3",
+        "c4",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "d6",
+        "e7",
+        "g5",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Classic Heath",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Esaki",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "c3",
+        "d6",
+        "f3",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "BergTiger",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b5"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ladybird",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "e6",
+        "b6"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Ladybird",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "b4",
+        "e3",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "BenHur",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "f6",
+        "e6",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ganglion",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "g5"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b3",
+        "f4",
+        "b5",
+        "b4",
+        "c6",
+        "d6",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b4",
+        "d2",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b4",
+        "d2",
+        "c2",
+        "f4",
+        "d6",
+        "c6",
+        "f5",
+        "e6",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Aubrey",
+      "aliases": [
+        "Tanaka"
+      ],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "g6"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tamenori",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "f4",
+        "g6",
+        "f7",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Diagonal Opening",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b4",
+        "d2",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "b6",
+        "b5",
+        "c6",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "b6",
+        "b5",
+        "c6",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b4",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b6",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "b6",
+        "c6",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Berner",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f5",
+        "e6",
+        "f4",
+        "c5",
+        "d6",
+        "c6",
+        "f7",
+        "g5",
+        "g6"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Sakaguchi",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f5",
+        "e6",
+        "f4",
+        "c5",
+        "d6",
+        "c6",
+        "f7",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tiger",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ganglion",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "b4"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f5",
+        "e6",
+        "f4"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Swallow",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f5",
+        "b4",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f5",
+        "b4"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Italian",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f5",
+        "e6",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat (Continuation)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f5",
+        "b4",
+        "f3",
+        "f4",
+        "e2",
+        "e6",
+        "g5",
+        "f6",
+        "d6",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Stephenson",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "c3"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ishii",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "f4",
+        "g5",
+        "g4",
+        "f3",
+        "c6",
+        "d3",
+        "d6"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Brightwell",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "d6"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-BILL",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "f4",
+        "g6",
+        "f7"
+      ],
+      "family": "perpendicular",
+      "discs": 13,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mainline Tiger",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "f4",
+        "g5",
+        "g4",
+        "f3",
+        "c6",
+        "d3",
+        "d6",
+        "b3",
+        "c3",
+        "b4",
+        "e2",
+        "b6"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Leader's Tiger",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Kung (Continuation)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "c3",
+        "b4",
+        "d6",
+        "c6",
+        "b5",
+        "a6",
+        "b6",
+        "c7"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "No-Kung",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "c3",
+        "b4"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Kung",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "c3",
+        "g5"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "COMP'OTH",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f6",
+        "e6",
+        "f5",
+        "c5",
+        "c3",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "c6",
+        "b5",
+        "b3",
+        "b6",
+        "e3",
+        "c2",
+        "a4",
+        "a5",
+        "a6",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "c5",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "f2",
+        "e2",
+        "f3",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "f2",
+        "e2",
+        "f3",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f2",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f2",
+        "f3",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "f3",
+        "e2",
+        "c2",
+        "f2",
+        "c5",
+        "b3",
+        "d1",
+        "e1",
+        "f1",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "f5",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f6",
+        "c5",
+        "f3",
+        "e6",
+        "d6",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f6",
+        "b5",
+        "f3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "f5",
+        "f3",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "b4",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "b4",
+        "d7",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "e6",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "e6",
+        "c6",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "f6",
+        "e2",
+        "c6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "d2",
+        "g4",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "e3",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "d2",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "f6",
+        "e3",
+        "c6",
+        "f5",
+        "f4",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "d2",
+        "b4",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "d2",
+        "b4",
+        "b3",
+        "d6",
+        "f4",
+        "f3",
+        "e6",
+        "f5",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "d2",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "d2",
+        "b4",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "b2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "c5",
+        "f6",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "c2",
+        "d6",
+        "e2",
+        "d2",
+        "f3",
+        "f4",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Horse",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "e6",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "f6",
+        "e3",
+        "c6",
+        "f5",
+        "f4",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "f6",
+        "e2",
+        "c6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "e6",
+        "c6",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "d2",
+        "g4",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "f5",
+        "d2",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "f6",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "d2",
+        "b4",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "d2",
+        "b4",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "d2",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "d2",
+        "b4",
+        "b3",
+        "d6",
+        "f4",
+        "f3",
+        "e6",
+        "f5",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "b2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "c2",
+        "d6",
+        "e2",
+        "d2",
+        "f3",
+        "f4",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b4",
+        "d2",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b4",
+        "d2",
+        "c2",
+        "f4",
+        "d6",
+        "c6",
+        "f5",
+        "e6",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b4",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b4",
+        "d2",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b2"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Diagonal Opening",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b3",
+        "f4",
+        "b5",
+        "b4",
+        "c6",
+        "d6",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "b6",
+        "b5",
+        "c6",
+        "f5"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "b6",
+        "b5",
+        "c6",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "e3",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "b4",
+        "c6",
+        "b5",
+        "b3",
+        "b6",
+        "e3",
+        "c2",
+        "a4",
+        "a5",
+        "a6",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "f4",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b6",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "b6",
+        "c6",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "c5",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f2",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "IAGO",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "d3",
+        "c3"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Inoue",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bhagat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e2"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Shaman",
+      "aliases": [
+        "Danish"
+      ],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Parallel Opening",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c5"
+      ],
+      "family": "parallel",
+      "discs": 6,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Semi-Wing Variation",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "f5",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Mimura",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Perpendicular Opening",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3"
+      ],
+      "family": "perpendicular",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Flat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b5"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-Tamenori-Kling",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b6",
+        "f5",
+        "g5",
+        "f6"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-birdie",
+      "aliases": [
+        "Rose-Tamenori"
+      ],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b6",
+        "f5",
+        "g5"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Ralle",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Greenberg",
+      "aliases": [
+        "Dawg"
+      ],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "d2"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Brightstein",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b6",
+        "f5",
+        "b4",
+        "f6",
+        "g5",
+        "d7"
+      ],
+      "family": "perpendicular",
+      "discs": 20,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Murakami Variation",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b5",
+        "f5",
+        "b3"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rotating Flat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b5",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-Birth",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b6",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rotating Flat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "e3",
+        "f4",
+        "c5",
+        "d6",
+        "f3",
+        "e6",
+        "c3",
+        "d3",
+        "e2",
+        "b5",
+        "f5",
+        "b4",
+        "f6",
+        "c2",
+        "e7",
+        "d2",
+        "c7"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "f2",
+        "e2",
+        "f3",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "f2",
+        "e2",
+        "f3",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "f3",
+        "e2",
+        "c2",
+        "f2",
+        "c5",
+        "b3",
+        "d1",
+        "e1",
+        "f1",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "d2",
+        "c5",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f2",
+        "f3",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f6",
+        "c5",
+        "f3",
+        "e6",
+        "d6",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f6",
+        "b5",
+        "f3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Wing Variation",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "e6",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f6",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "b4",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "b4",
+        "d7",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "f5",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "c4",
+        "c3",
+        "d3",
+        "e3",
+        "f4",
+        "d6",
+        "e6",
+        "f5",
+        "f3",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "c4",
+        "e3",
+        "f6",
+        "e6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c7",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c7",
+        "c6",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "c7",
+        "d7",
+        "c6",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "c6",
+        "d7",
+        "f7",
+        "c7",
+        "f4",
+        "g6",
+        "e8",
+        "d8",
+        "c8",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "f4",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "e7",
+        "c7",
+        "d7",
+        "c6",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "e7",
+        "f4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "g7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "c3",
+        "d6",
+        "f3",
+        "c4",
+        "c5",
+        "b4"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "c3",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "f7",
+        "e3",
+        "d7",
+        "e7",
+        "c6",
+        "c5",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "e7",
+        "g5",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "e7",
+        "g5",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "f7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "e7",
+        "g5",
+        "g6",
+        "e3",
+        "c5",
+        "c6",
+        "d3",
+        "c4",
+        "b3"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Semi-Wing Variation",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "d3",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Wing Variation",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "c4",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Hokuriku Buffalo",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c3",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Buffalo",
+      "aliases": [
+        "Kenichi Variation"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Diagonal Opening",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6"
+      ],
+      "family": "diagonal",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Inoue",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Shaman",
+      "aliases": [
+        "Danish"
+      ],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bhagat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "g4"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "IAGO",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "f5",
+        "f6"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida Buffalo",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c3",
+        "f4",
+        "c6",
+        "d3",
+        "e3",
+        "d2"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "g5",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "g5",
+        "e2",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "c4",
+        "c6",
+        "b5"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c3",
+        "g4",
+        "c6"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "d3",
+        "c4",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "d6",
+        "c5",
+        "e3",
+        "d3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka Buffalo",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "c3",
+        "d7",
+        "f3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tiger",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Perpendicular Opening",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6"
+      ],
+      "family": "perpendicular",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-BILL",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2"
+      ],
+      "family": "perpendicular",
+      "discs": 13,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Aubrey",
+      "aliases": [
+        "Tanaka"
+      ],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "b3"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "X-square Opening",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g7"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Mimura variation II",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g5",
+        "e7",
+        "f7",
+        "c5",
+        "e3",
+        "f3",
+        "c4",
+        "d3",
+        "c2"
+      ],
+      "family": "diagonal",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath-Bat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g5",
+        "e7",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Pyramid",
+      "aliases": [
+        "Checkerboarding Peasant"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g6",
+        "c5",
+        "g4",
+        "g5",
+        "f3",
+        "e3",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Snake",
+      "aliases": [
+        "Peasant"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tamenori",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b3",
+        "c2",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "COMP'OTH",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Kung",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "b4"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Kung (Continuation)",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5",
+        "e3",
+        "f3",
+        "g4",
+        "h3",
+        "g3",
+        "f2"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "No-Kung",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6",
+        "g5"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Stephenson",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "f6"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mainline Tiger",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "b5",
+        "c6",
+        "f3",
+        "e6",
+        "e3",
+        "g6",
+        "f6",
+        "g5",
+        "d7",
+        "g3"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Ishii",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "c5",
+        "b4",
+        "b5",
+        "c6",
+        "f3",
+        "e6",
+        "e3"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Leader's Tiger",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Brightwell",
+      "aliases": [],
+      "moves": [
+        "f5",
+        "d6",
+        "c3",
+        "d3",
+        "c4",
+        "f4",
+        "e3"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Aircraft",
+      "aliases": [
+        "Feldborg"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Sailboat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7",
+        "b5",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Alternative)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "d6",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cow Bat",
+      "aliases": [
+        "Bat",
+        "Cambridge"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tanida",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-v-Toth",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cow",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Maruoka",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d3",
+        "f3",
+        "e2"
+      ],
+      "family": "diagonal",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Landau",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "c4",
+        "d3",
+        "c3"
+      ],
+      "family": "diagonal",
+      "discs": 13,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "f3",
+        "g4",
+        "g6",
+        "g3",
+        "d6",
+        "f7",
+        "h5",
+        "h4",
+        "h3",
+        "e7"
+      ],
+      "family": "diagonal",
+      "discs": 21,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Heath",
+      "aliases": [
+        "Tobidashi \"Jumping Out"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g5"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Raccoon Dog",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Iwasaki variation",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g5",
+        "e7",
+        "d7"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Heath-Chimney",
+      "aliases": [
+        "Mass-Turning"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g5",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Hamilton",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g3",
+        "f3",
+        "g4"
+      ],
+      "family": "diagonal",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bat (Piau Continuation 2)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3",
+        "g4",
+        "f3",
+        "g6"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Melnikov",
+      "aliases": [
+        "Bat (Piau Continuation 1)"
+      ],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "c5",
+        "g5",
+        "g3",
+        "g4",
+        "f3",
+        "c4"
+      ],
+      "family": "diagonal",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Lollipop",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "g3",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Chimney",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f6",
+        "f5",
+        "f4",
+        "e3",
+        "d6"
+      ],
+      "family": "diagonal",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Greenberg",
+      "aliases": [
+        "Dawg"
+      ],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "g5"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Sakaguchi",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "e6",
+        "f5",
+        "d6",
+        "e3",
+        "f4",
+        "f3",
+        "g6",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Cat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "e6",
+        "f5",
+        "d6"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ganglion",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "d2"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Berner",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "e6",
+        "f5",
+        "d6",
+        "e3",
+        "f4",
+        "f3",
+        "g6",
+        "e7",
+        "f7"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Italian",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "e6",
+        "f5",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "e6",
+        "d2"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Horse",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat (Continuation)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "e6",
+        "d2",
+        "c6",
+        "d6",
+        "b5",
+        "f5",
+        "e7",
+        "f6",
+        "f4",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Swallow",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "e6",
+        "d2",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tiger",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ishii",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "d6",
+        "e7",
+        "d7",
+        "c6",
+        "f3",
+        "c4",
+        "f4"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Leader's Tiger",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-BILL",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "d6",
+        "f7",
+        "g6"
+      ],
+      "family": "perpendicular",
+      "discs": 13,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mainline Tiger",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "d6",
+        "e7",
+        "d7",
+        "c6",
+        "f3",
+        "c4",
+        "f4",
+        "c2",
+        "c3",
+        "d2",
+        "b5",
+        "f2"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "COMP'OTH",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "c3",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Kung",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "c3",
+        "d2"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Stephenson",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "c3"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Kung",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "c3",
+        "e7"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Kung (Continuation)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "c3",
+        "d2",
+        "f4",
+        "f3",
+        "e2",
+        "f1",
+        "f2",
+        "g3"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Shaman",
+      "aliases": [
+        "Danish"
+      ],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "IAGO",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "c4",
+        "c3"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Greenberg",
+      "aliases": [
+        "Dawg"
+      ],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "b4"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Inoue",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Wing Variation",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "f5",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Semi-Wing Variation",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c3",
+        "e6",
+        "e3"
+      ],
+      "family": "diagonal",
+      "discs": 8,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Bhagat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "b5"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Perpendicular Opening",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5"
+      ],
+      "family": "perpendicular",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Flat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "e2"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-Tamenori-Kling",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "f2",
+        "e6",
+        "e7",
+        "f6"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-birdie",
+      "aliases": [
+        "Rose-Tamenori"
+      ],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "f2",
+        "e6",
+        "e7"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Mimura",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Ralle",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Brightstein",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "f2",
+        "e6",
+        "d2",
+        "f6",
+        "e7",
+        "g4"
+      ],
+      "family": "perpendicular",
+      "discs": 20,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Murakami Variation",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "e2",
+        "e6",
+        "c2"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rotating Flat",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "e2",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-Birth",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "f2",
+        "e6"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rotating Flat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "d6",
+        "e3",
+        "f4",
+        "c6",
+        "f5",
+        "c3",
+        "c4",
+        "b5",
+        "e2",
+        "e6",
+        "d2",
+        "f6",
+        "b3",
+        "g5",
+        "b4",
+        "g3"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tamenori",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "d6",
+        "f7",
+        "g6",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat (Continuation)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "d3",
+        "e7",
+        "f3",
+        "e3",
+        "g4",
+        "c4",
+        "d2",
+        "c3",
+        "c5",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Swallow",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "d3",
+        "e7",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mimura",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Horse",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c4"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Cat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "d3",
+        "e7"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Berner",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "d3",
+        "c4",
+        "e3",
+        "d6",
+        "c5",
+        "c6",
+        "b3",
+        "d2",
+        "c2"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Cat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "d3",
+        "c4",
+        "e3"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Italian",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "d3",
+        "c4",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Sakaguchi",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "d3",
+        "c4",
+        "e3",
+        "d6",
+        "c5",
+        "c6",
+        "b3",
+        "f3"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ralle",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rotating Flat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "d7",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Flat",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "d7"
+      ],
+      "family": "perpendicular",
+      "discs": 15,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Murakami Variation",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "d7",
+        "d3",
+        "f7"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rotating Flat (Kling Continuation)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "d7",
+        "d3",
+        "e7",
+        "c3",
+        "g6",
+        "b4",
+        "g5",
+        "b6"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Brightstein",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "c7",
+        "d3",
+        "e7",
+        "c3",
+        "d2",
+        "b5"
+      ],
+      "family": "perpendicular",
+      "discs": 20,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-Birth",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "c7",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 16,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-Tamenori-Kling",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "c7",
+        "d3",
+        "d2",
+        "c3"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Rose-birdie",
+      "aliases": [
+        "Rose-Tamenori"
+      ],
+      "moves": [
+        "e6",
+        "f4",
+        "e3",
+        "d6",
+        "c5",
+        "f3",
+        "c4",
+        "f6",
+        "f5",
+        "g4",
+        "c7",
+        "d3",
+        "d2"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Aubrey",
+      "aliases": [
+        "Tanaka"
+      ],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "c2"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Tiger",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3"
+      ],
+      "family": "perpendicular",
+      "discs": 9,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Rose-BILL",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "e3",
+        "c2",
+        "b3"
+      ],
+      "family": "perpendicular",
+      "discs": 13,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Brightwell",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "c5"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Perpendicular Opening",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4"
+      ],
+      "family": "perpendicular",
+      "discs": 6,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Aubrey",
+      "aliases": [
+        "Tanaka"
+      ],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "f7"
+      ],
+      "family": "perpendicular",
+      "discs": 10,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Brightwell",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "c5",
+        "f6",
+        "f5",
+        "e6",
+        "e3",
+        "f4"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Parallel Opening",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "d6"
+      ],
+      "family": "parallel",
+      "discs": 6,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Parallel Opening",
+      "aliases": [],
+      "moves": [
+        "d3",
+        "e3"
+      ],
+      "family": "parallel",
+      "discs": 6,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Tamenori",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "e3",
+        "c2",
+        "b3",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 14,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Kung",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "f6",
+        "e7"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Kung",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "f6",
+        "d2"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Ganglion",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "e7"
+      ],
+      "family": "perpendicular",
+      "discs": 8,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "No-Kung (Continuation)",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "f6",
+        "e7",
+        "c5",
+        "c6",
+        "d7",
+        "c8",
+        "c7",
+        "b6"
+      ],
+      "family": "perpendicular",
+      "discs": 18,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "COMP'OTH",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "f6",
+        "c6"
+      ],
+      "family": "perpendicular",
+      "discs": 12,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Mainline Tiger",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "e3",
+        "d2",
+        "e2",
+        "f3",
+        "c6",
+        "f5",
+        "c5",
+        "f7",
+        "f6",
+        "e7",
+        "g4",
+        "c7"
+      ],
+      "family": "perpendicular",
+      "discs": 22,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Ishii",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "e3",
+        "d2",
+        "e2",
+        "f3",
+        "c6",
+        "f5",
+        "c5"
+      ],
+      "family": "perpendicular",
+      "discs": 17,
+      "valid": true,
+      "in_book": false
+    },
+    {
+      "name": "Stephenson",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "f6"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    },
+    {
+      "name": "Leader's Tiger",
+      "aliases": [],
+      "moves": [
+        "e6",
+        "f4",
+        "c3",
+        "c4",
+        "d3",
+        "d6",
+        "f5"
+      ],
+      "family": "perpendicular",
+      "discs": 11,
+      "valid": true,
+      "in_book": true
+    }
+  ]
+}

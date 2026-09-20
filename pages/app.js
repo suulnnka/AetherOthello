@@ -162,6 +162,9 @@ function showSearch(res) {
   const me = sideName(aiColor()), opp = sideName(other(aiColor()));
   const sc = (s) => (s >= 0 ? `${me} +${s.toFixed(1)}` : `${opp} +${(-s).toFixed(1)}`);
   if (res.only) { infoL.textContent = `唯一合法步 ${moveName(res.move)},无需搜索`; return; }
+  /* 开局书命中:没搜索(depth=0、nodes=0),来源只能信回包的 book 字段。
+   * 书有名字显示名字,黑白棋的书无族名 → 显示估值 */
+  if (res.book) { infoL.textContent = res.name ? `开局书 · ${res.name}` : `开局书 · ${sc(res.score)}`; return; }
   const tail = ` · 节点 ${fmtN(res.nodes)} · ${fmtT(res.ms)}${fmtNps(res)}`;
   if (res.greedy) {
     infoL.textContent = `初级 贪心选点 ${moveName(res.move)} · 评估 ${sc(res.score)}${tail}`;
@@ -252,10 +255,15 @@ async function refresh() {
   const st = await fetchState(turn);
   if (gen !== searchGen || !st) return;
   if (st.moves.length === 0 && !st.over) {
-    const otherSt = await fetchState(other(turn));
+    /* 跳过必须把 turn 真翻给对方(与 webos 应用同步修):状态栏、提示点归属、
+     * applyState 里的 AI 调度全都读它 —— 不翻就是行棋方停在无棋方,
+     * 轮到谁谁点不动,该 AI 接手时又没人调度,棋局卡死。 */
+    const skipped = turn;
+    turn = other(turn);
+    const otherSt = await fetchState(turn);
     if (gen !== searchGen || !otherSt) return;
-    applyState({ ...otherSt, side: other(turn) });
-    toast('黑白棋:' + `${sideName(turn)}无合法棋,跳过回合`);
+    applyState({ ...otherSt, side: turn });
+    toast('黑白棋:' + `${sideName(skipped)}无合法棋,跳过回合`);
     return;
   }
   applyState({ ...st, side: turn });
@@ -336,7 +344,7 @@ function onEngineMsg(e) {
   p.resolve({
     ...d,
     only: p.only,
-    greedy: d.depth === 0 && !d.exact,
+    greedy: d.depth === 0 && !d.exact && !d.book,
     partial: lv ? d.empties <= lv.end && !d.exact : false,
     depthMax: d.depthMax ?? lv?.depth ?? 0,
   });
@@ -406,6 +414,10 @@ async function aiMove() {
   try {
     const res = await requestThink();
     if (!res || gen !== searchGen || gameOver || !document.contains(appEl)) return;
+    if (res.book) {   // 书着秒回:垫点延迟让节奏像「想了一下」,期间作废靠 gen 失配
+      await new Promise((ok) => setTimeout(ok, 350 + Math.random() * 450));
+      if (gen !== searchGen || gameOver || !document.contains(appEl)) return;
+    }
     /* AI 的手也按新鲜局面裁决 */
     const st = await fetchState(color);
     if (!st || gen !== searchGen || gameOver || !document.contains(appEl)) return;

@@ -146,6 +146,12 @@ threadlocal var ply_cnt: [MAX_PLY]u32 = undefined;
 // 递归前写入(rootSearch 写 ply 0 / ply 1)。兄弟着法从**父状态**重复派生、
 // 父状态永不被就地改写 —— 线性对拍盖不住的"复用污染"防线就在这条纪律上
 // (inc.zig 头注:验证驱动与搜索同形,本文件的用法和 dfsCheck 逐点对应)。
+// ⚠ "单工作缓冲 + undo"(Egaroucid eval_move/eval_undo 式)实现并实测过:
+//   行为逐位一致但无收益(空机三方交替 3 轮:中局打平,残局慢 ~4%),
+//   且结构上更贵 —— 本引擎 addCell 每格要动 4 张表的 i64 槽号,undo 把
+//   逆增量整个重做,而 160 B 的 State 快照只是整块拷贝;Egaroucid 的每格
+//   更新是十几次 int 加,那边才划算。已回退,别再改回去
+//   (2026-09-20 实验记录见 docs/engine-improvement-plan.md)。
 // 训练影子表路径(eval_u != null)不维护也不读:标签链路一行不动,也绕开
 // 训练器多线程下"哪条线程建过表"的问题(ensureTables 懒建是兜底)。
 threadlocal var ply_inc: [MAX_PLY]inc.State = undefined;
@@ -418,58 +424,52 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
     }
     ply_cnt[ply] = n;
 
-    // 插入排序(降序)。着法数 ≤ 33,插入排序比任何"更聪明"的排序都快。
-    var i: u32 = 1;
-    while (i < n) : (i += 1) {
-        const mv = moves[i];
-        const sc = scores[i];
-        const fl = flips[i];
-        var j: i32 = @intCast(i - 1);
-        while (j >= 0 and scores[@intCast(j)] < sc) : (j -= 1) {
-            const jj: u32 = @intCast(j);
-            moves[jj + 1] = moves[jj];
-            scores[jj + 1] = scores[jj];
-            flips[jj + 1] = flips[jj];
-        }
-        const dst: u32 = @intCast(j + 1);
-        moves[dst] = mv;
-        scores[dst] = sc;
-        flips[dst] = fl;
-    }
-
-    // 置换表/提示表最优着法提到队首。**必须连翻子掩码一起搬** ——
+    // 置换表/提示表最优着法换到队首。**必须连翻子掩码一起换** ——
     // 漏搬会让队首着法配到别人的翻子掩码,make 出非法局面(值全错,且很难查)。
+    var promo_first = false;
     if (promo >= 0) {
         const want: u6 = @intCast(promo);
         var k: u32 = 0;
-        while (k < n) : (k += 1) {
-            if (moves[k] != want) continue;
-            if (k == 0) break;
-            const mv = moves[k];
-            const sc = scores[k];
-            const fl = flips[k];
-            var j = k;
-            while (j > 0) : (j -= 1) {
-                moves[j] = moves[j - 1];
-                scores[j] = scores[j - 1];
-                flips[j] = flips[j - 1];
+        while (k < n and moves[k] != want) : (k += 1) {}
+        if (k < n) {
+            if (0 < k) {
+                std.mem.swap(u6, &moves[0], &moves[k]);
+                std.mem.swap(i32, &scores[0], &scores[k]);
+                std.mem.swap(u64, &flips[0], &flips[k]);
             }
-            moves[0] = mv;
-            scores[0] = sc;
-            flips[0] = fl;
-            break;
+            promo_first = true;
         }
     }
 
     var best: f32 = -INF;
     var best_move: u6 = moves[0];
     const alpha0 = alpha;
-    i = 0;
+    var i: u32 = 0;
     while (i < n) : (i += 1) {
+        // 懒选择(Egaroucid swap_next_best_move 同思想):不再预先整段排序,
+        // 搜到第 i 个着法前才在 [i..n) 里选出剩余最大者换上来 —— 排序成本
+        // 只为实际被搜索的前缀付出,PVS 截断后尾巴的有序性根本用不上。
+        // ⚠ 第 0 轮在首着提升命中时必须跳过:TT/提示表着法优先于一切静态分
+        //   (旧实现"先排序后冒泡"天然如此,漏了这条节点数实测 ×2.4)。
+        // 等值着法的相对顺序可能与稳定降序不同(交换会搬动尾巴),分值不受
+        // 影响;moves 签名回归盯的分,节点数允许极小漂移。
+        if (!(i == 0 and promo_first)) {
+            var sel = i;
+            var k = i + 1;
+            while (k < n) : (k += 1) {
+                if (scores[k] > scores[sel]) sel = k;
+            }
+            if (sel != i) {
+                std.mem.swap(u6, &moves[i], &moves[sel]);
+                std.mem.swap(i32, &scores[i], &scores[sel]);
+                std.mem.swap(u64, &flips[i], &flips[sel]);
+            }
+        }
         const nb = rules.playMove(b, moves[i], flips[i]);
         // ④ 子节点状态 = 父状态**整份抄过来**再打增量(moveUpdate 只动受影响
         // 的表,但基础必须是父状态 —— 直接在未初始化的 ply+1 上加增量就是
         // 当场翻车的那种 bug);每个兄弟都重抄一遍,父状态永不动。
+        // (拷贝 vs apply+undo 的取舍见 ④ 头注的实测记录。)
         if (eval_u == null) {
             ply_inc[ply + 1] = ply_inc[ply];
             inc.moveUpdate(&ply_inc[ply + 1], moves[i], flips[i], ply_inc[ply].home_to_move);
@@ -532,7 +532,7 @@ pub threadlocal var rng_state: u64 = 0;
 /// 一个截断量化步),严格等值几乎只剩 1 个成员;按 Egaroucid book 的
 /// accept_value 思想用 1 子容差取"≈最优"集合 —— 只影响开局多样性,
 /// 代价是偶尔放弃 <1 子的微小优势,对人机对弈无感。
-/// genbook 生成开局主线时放宽到 3(主线库要多样性,不要同一主线刷屏)。
+/// (历史注:自对弈主线书 genbook 曾放宽到 3;该链路已由 Egaroucid 精确书替代。)  
 pub var tie_tol: f32 = 1.0;
 
 fn pickTie(order: *const [MAX_MOVES]u32, rv: *const [MAX_MOVES]f32, moves: *const [MAX_MOVES]u6, n: u32, best_move: u6) u6 {

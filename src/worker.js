@@ -19,7 +19,9 @@
  *                             跳过回合由调用方推得:moves 空且 over=false → 查对方
  *   { type:'think', id, own:[lo,hi], opp:[lo,hi], level, depth?, empties }
  *                           → { id, move, score, depth, depthMax, nodes,
- *                               exact, empties, ms, engine }
+ *                               exact, empties, ms, engine, book }
+ *                             book = 开局书命中(depth=0、nodes=0、score 为书内
+ *                               精确值);UI 靠它标「开局书」来源,无书实现恒 false
  *                             move = -1 表示无合法着法(该跳过回合)
  *                             depth 可选:覆盖该档位的深度上限 —— 标定与跨实现
  *                             对打要"同深度比棋力"时用,缺省完全不变
@@ -225,6 +227,9 @@ self.onmessage = (e) => {
       depth: X.engineDepth(),
       depthMax,
       exact: X.engineExact() === 1,
+      // 开局书命中标志(书着 depth=0 与贪心同形,只能引擎自己说);typeof 防御
+      // 还没带 engineBook 导出的旧 wasm
+      book: typeof X.engineBook === 'function' && X.engineBook() === 1,
       // 引擎的节点计数是 u64,emscripten 那套 BigInt 返回值这里用不上 —— 拆两半拼
       nodes: X.engineNodesLo() + X.engineNodesHi() * 4294967296,
       empties: d.empties,
