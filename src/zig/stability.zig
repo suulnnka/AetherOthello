@@ -60,16 +60,20 @@ var known: [256][256]u1 = undefined;
 /// np = owner 落子并翻子;no = 对方被翻走之后剩下的。
 fn probablyMoveLine(p: u8, o: u8, place: u3, np: *u8, no: *u8) void {
     np.* = p | (@as(u8, 1) << place);
-    // 向左:连续对方子走到头,尽头是己方子才翻得动(i>0 先判,防负移位)
+    // 向左:连续对方子走到头,尽头是己方子才翻得动(place==0 时左边出线,无可翻)。
+    // ⚠ 边界必须显式判 i>=0:i=-1 时 @intCast 转 u3 是 UB —— ReleaseFast 靠
+    //   截断碰巧落在无害路径,Debug 直接 panic(2026-09-20 增量评估接入时被
+    //   Debug 复现跑炸出来)。两种写法翻子结论逐位相同:run 撞到端格时,
+    //   旧代码读到的"对端子"与"出线即无可翻"等价(黑白不共格)。
     var i: i32 = @as(i32, place) - 1;
-    while (i > 0 and (o >> @as(u3, @intCast(i))) & 1 != 0) : (i -= 1) {}
-    if ((p >> @as(u3, @intCast(i))) & 1 != 0) {
+    while (i >= 0 and (o >> @as(u3, @intCast(i))) & 1 != 0) : (i -= 1) {}
+    if (i >= 0 and (p >> @as(u3, @intCast(i))) & 1 != 0) {
         var j: i32 = @as(i32, place) - 1;
         while (j > i) : (j -= 1) np.* ^= @as(u8, 1) << @as(u3, @intCast(j));
     }
     i = @as(i32, place) + 1;
-    while (i < 7 and (o >> @as(u3, @intCast(i))) & 1 != 0) : (i += 1) {}
-    if ((p >> @as(u3, @intCast(i))) & 1 != 0) {
+    while (i <= 7 and (o >> @as(u3, @intCast(i))) & 1 != 0) : (i += 1) {}
+    if (i <= 7 and (p >> @as(u3, @intCast(i))) & 1 != 0) {
         var j: i32 = @as(i32, place) + 1;
         while (j < i) : (j += 1) np.* ^= @as(u8, 1) << @as(u3, @intCast(j));
     }

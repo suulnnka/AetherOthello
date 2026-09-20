@@ -349,7 +349,13 @@ fn exactDump(arena: std.mem.Allocator, outPath: []const u8, count: u32, lo: u32,
         while (steps > 0) : (steps -= 1) {
             const m = rules.moves(b);
             if (m == 0) {
-                b = rules.Board{ .own = b.opp, .opp = b.own };
+                // ⚠ 必须经临时变量换视角:`b = .{ .own = b.opp, .opp = b.own }` 是
+                //   结果位置别名陷阱(逐字段写入,第二个字段读到已覆盖的第一个),
+                //   实测原生 Debug/ReleaseFast 都会坏成 own == opp —— 局面永久损坏,
+                //   而 probe-exact 的三方对拍(wasm==js==自报值)对这种垃圾局面
+                //   天然免疫,全部自洽通过。2026-09-20 由增量评估验证程序抓到。
+                const sw = rules.Board{ .own = b.opp, .opp = b.own };
+                b = sw;
                 own_black = !own_black;
                 continue;
             }

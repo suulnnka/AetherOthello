@@ -76,8 +76,12 @@ function think(b, color, depth) {
   return X.engineScore();
 }
 
-/* 深度对:MPC 在节点深度 d 用 d/4 验证;拟合覆盖 d ∈ {8,10,12} 的实际使用面 */
-const PAIRS = [[8, 2], [10, 2], [12, 3], [10, 3]];
+/* 深度对:MPC 在节点深度 d 用 d/4 验证(search.zig:向上取整到偶数、奇偶对齐 d)。
+ * PAIRS 必须贴着这个映射采样 —— 模型没有 d 项,c2·d_verify 实际是「节点更深 →
+ * 误差更大」的替身,采样偏离运行时映射会把 c2 拟歪(σ 系统性偏小 → 过剪)。
+ * ⚠ 只能采偶数 ds:engineThink 的中局阶梯按 by-2 走,think(3) 实际跑的是 d2,
+ *   奇数验证深度(运行时 d9/d11 用 dv3)靠 ds 项在 2↔4 间线性插值,方向偏保守。 */
+const PAIRS = [[8, 2], [10, 2], [12, 4]];
 const samples = [];
 let idx = 0;
 for (let i = 0; i < N; i++) {

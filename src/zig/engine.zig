@@ -12,6 +12,7 @@ const std = @import("std");
 const rules = @import("rules.zig");
 const pattern = @import("pattern.zig");
 const search = @import("search.zig");
+const inc = @import("inc.zig");
 
 /// 编译期嵌进 wasm 数据段。int8 权重是高熵数据,gzip 基本压不动,
 /// 所以它就是体积预算里那块"躲不掉的" —— 别指望靠压缩省它。
@@ -105,6 +106,13 @@ export fn engineSetMpc(flag: u32, mpct: f32) void {
     search.mpc_mpct = mpct;
 }
 
+/// ⑥b 尾盘 MPC:exact 求解的纯精确带下沿(空位数)。>0 时「空数 > 下沿+1」
+/// 的求解节点允许中局验证剪枝(概率性,engineExact() 届时报 0);
+/// 0 = 关闭(现状)。典型用法:engineThink 的 end 抬到 20,这里给 16。
+export fn engineSetEndMpc(pure: u32) void {
+    search.mpc_end_pure = @intCast(pure);
+}
+
 /// ⑪ 根同分随机化种子(lo/hi 拼 u64)。0 = 完全确定(缺省)。
 export fn engineSetSeed(lo: u32, hi: u32) void {
     search.rng_state = @as(u64, lo) | (@as(u64, hi) << 32);
@@ -113,6 +121,7 @@ export fn engineSetSeed(lo: u32, hi: u32) void {
 export fn engineInit() u32 {
     if (!pattern.init(weights)) return pattern.failStage;
     bookInit();
+    inc.initTables(); // ④ 增量评估的每格特征表(搜索入口还有懒建兜底)
     return 0;
 }
 
@@ -178,8 +187,9 @@ export fn engineDepth() u32 {
 /// 这一手是否给出了**可信的精确解**。
 /// ⚠ 预算耗尽时必须报 0:残局分支在 aborted 时返回的是「前置中层迭代的最后一轮」,
 ///   只是个启发式估值,UI 若拿它当终局判决就会显示凭空的"胜 N 子"(踩过)。
+/// ⚠ ⑥b 尾盘 MPC 命中过剪枝的求解同样必须报 0:结果含概率成分,不是精确解。
 export fn engineExact() u32 {
-    if (search.aborted) return 0;
+    if (search.aborted or search.mpc_end_used) return 0;
     return if (last.exact or last.endgame) 1 else 0;
 }
 export fn engineNodesLo() u32 {

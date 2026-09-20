@@ -105,11 +105,41 @@ pub fn build(b: *std.Build) void {
             .optimize = .ReleaseFast,
         }),
     });
+    // ④ 增量评估:特征表 / 线性对拍 / 搜索同形 DFS / 虚着 / 可逆(见 inc.zig 头注)
+    const unit4 = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/zig/inc.zig"),
+            .target = target,
+            .optimize = .ReleaseFast,
+        }),
+    });
     const run_unit = b.addRunArtifact(unit);
     const run_unit2 = b.addRunArtifact(unit2);
     const run_unit3 = b.addRunArtifact(unit3);
+    const run_unit4 = b.addRunArtifact(unit4);
     const test_step = b.step("test", "规则与折叠的单元测试");
     test_step.dependOn(&run_unit.step);
     test_step.dependOn(&run_unit2.step);
     test_step.dependOn(&run_unit3.step);
+    test_step.dependOn(&run_unit4.step);
+
+    // ── ④ 增量评估的 wasm 探针 ────────────────────────────────────
+    // 独立产物 incprobe.wasm(inc.zig + incprobe.zig),与生产 othello.wasm
+    // 不共文件、不占体积闸门;tools/probe-inc.mjs 用它做"原生对、wasm 漂"
+    // 的最小复现。strip 同 othello:不 strip 会顶进几百 KB。
+    const incprobe = b.addExecutable(.{
+        .name = "incprobe",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/zig/incprobe.zig"),
+            .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding }),
+            .optimize = .ReleaseFast,
+            .strip = true,
+        }),
+    });
+    incprobe.entry = .disabled;
+    incprobe.rdynamic = true;
+    const inst_incprobe = b.addInstallArtifact(incprobe, .{});
+    b.getInstallStep().dependOn(&inst_incprobe.step);
+    const st_incprobe = b.step("incprobe", "构建增量评估 wasm 探针(zig-out/bin/incprobe.wasm)");
+    st_incprobe.dependOn(&inst_incprobe.step);
 }

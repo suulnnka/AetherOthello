@@ -202,6 +202,15 @@ self.onmessage = (e) => {
     if (typeof X.engineSetMpc === 'function') {
       X.engineSetMpc(lv.mpc ? 1 : 0, Number(lv.mpc) || 0);
     }
+    /* ⑥b 尾盘 MPC:endMpc = 纯精确带下沿(空数)。>0 时 exact 求解在
+     * 「空数 > 下沿+1」的节点允许中局验证剪枝(概率性,engineExact() 报 0),
+     * think 的 end 要相应抬到带口(end > endMpc + 2 才有带)。⚠ 实测 20 空
+     * 入带单步 40~200M 节点 —— 启用必须配 ≥60M 预算,否则带内全是预算熔断、
+     * 白白丢精度。0/缺省 = 关;消息级 d.endMpc 覆盖供标定/对打用(同 d.depth)。 */
+    const endMpc = Number.isFinite(d.endMpc) ? Number(d.endMpc) : Number(lv.endMpc) || 0;
+    if (endMpc > 0 && typeof X.engineSetEndMpc === 'function') {
+      X.engineSetEndMpc(endMpc >>> 0);
+    }
     const t0 = performance.now();
     const mv = X.engineThink(
       d.own[0], d.own[1], d.opp[0], d.opp[1],

@@ -17,6 +17,7 @@ const rules = @import("rules.zig");
 const pattern = @import("pattern.zig");
 const stability = @import("stability.zig");
 const endgame = @import("endgame.zig");
+const inc = @import("inc.zig");
 
 pub const INF: f32 = 1e30;
 
@@ -139,6 +140,25 @@ threadlocal var ply_moves: [MAX_PLY][MAX_MOVES]u6 = undefined;
 threadlocal var ply_flips: [MAX_PLY][MAX_MOVES]u64 = undefined;
 threadlocal var ply_scores: [MAX_PLY][MAX_MOVES]i32 = undefined;
 threadlocal var ply_cnt: [MAX_PLY]u32 = undefined;
+
+// ── ④ 增量评估:per-ply 槽号状态(帧属方 = 根行棋方)─────────────────────
+// 不变式:search() 进入时 ply_inc[ply] 必须描述 b;子节点状态由父节点在
+// 递归前写入(rootSearch 写 ply 0 / ply 1)。兄弟着法从**父状态**重复派生、
+// 父状态永不被就地改写 —— 线性对拍盖不住的"复用污染"防线就在这条纪律上
+// (inc.zig 头注:验证驱动与搜索同形,本文件的用法和 dfsCheck 逐点对应)。
+// 训练影子表路径(eval_u != null)不维护也不读:标签链路一行不动,也绕开
+// 训练器多线程下"哪条线程建过表"的问题(ensureTables 懒建是兜底)。
+threadlocal var ply_inc: [MAX_PLY]inc.State = undefined;
+
+/// ④ 增量路径的量化求值:与 pattern.eval(b) **逐位相等** —— 同一整数和
+/// (符号经折叠对称性 W(换色·s) = −W(s) 折回行棋方视角,int8 取负无舍入)
+/// × 同一 scale。叶子从全量重算(~256 次位探测)退化成 38 次查表求和。
+/// 训练影子表路径保持 pattern.eval 全量,行为与历史逐位一致。
+inline fn evalInc(b: rules.Board, ply: u32) f32 {
+    if (eval_u != null) return pattern.eval(b);
+    const ph = pattern.phaseOf(ply_inc[ply].discs);
+    return @as(f32, @floatFromInt(inc.sumInt(&ply_inc[ply]))) * pattern.scales[ph];
+}
 
 pub threadlocal var nodes: u64 = 0;
 pub threadlocal var node_limit: u64 = 0; // 0 = 不限
@@ -270,10 +290,21 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
     }
 
     if (ply + 2 >= MAX_PLY or depth <= 0) {
-        if (exact) return terminalScore(b);
+        if (exact) {
+            // 混合残局(⑥b,mpc_end_pure>0 时启用):叶子落在纯精确带内,
+            // 不做评估 —— 直接窗口内完全求解(子解共享 TT,≤16 空很便宜)。
+            // 下沿内深度给足(+4 留虚着余量),其内部节点空数 ≤ 带 → 不再触发尾盘 MPC。
+            // ⚠ 同 ply 重入:④ 的不变式要求进入时 ply_inc[ply] 已描述 b ——
+            //   当前节点恰好满足;挪到 ply+2 会读到未初始化状态(wasm OOB)。
+            //   叶子随即返回,不会再读本节点的着法 scratch,同 ply 无冲突。
+            if (mpc_end_pure > 0 and 64 - b.discs() <= mpc_end_pure) {
+                return search(b, @intCast(64 - b.discs() + 4), alpha, beta, ply, true);
+            }
+            return terminalScore(b);
+        }
         evals += 1;
         if (eval_u) |u| return pattern.evalFloat(b, u);
-        return pattern.eval(b);
+        return evalInc(b, ply);
     }
 
     const m = rules.moves(b);
@@ -282,6 +313,12 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
         // 所以残局求解的 depth 只要给到空位数就够了,主分支给 +4 是留余量)。
         const sw = rules.Board{ .own = b.opp, .opp = b.own };
         if (rules.moves(sw) == 0) return terminalScore(b);
+        // ④ 虚着:棋盘一格不变,子状态照搬 + 行棋方记账翻转(固定帧属方视角
+        // 下 pass 是零成本 —— 这正是当初弃"行棋方视角 + 换色表"方案的理由)。
+        if (eval_u == null) {
+            ply_inc[ply + 1] = ply_inc[ply];
+            inc.passFlip(&ply_inc[ply + 1]);
+        }
         return -search(sw, depth, -beta, -alpha, ply + 1, exact);
     }
 
@@ -294,11 +331,38 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
         beta = c.beta;
     }
 
+    // ⑥b 尾盘 MPC:exact 求解在纯精确带之上,用中局 dv2 全窗搜索估计真实
+    // 分值,远离窗口即剪(跨尺度误差由 σ_end 兜住;mpct=1.64 时阈值约
+    // 15~17 子,98%+ 置信带)。命中剪枝必须置 mpc_end_used。
+    if (exact and mpc_end_pure > 0 and mpc_mpct > 0) {
+        const empt_i: i32 = @intCast(64 - b.discs());
+        if (empt_i > mpc_end_pure + 1) { // 下沿内(≤pure+1)子树本来就便宜,纯精确
+            const thr = mpc_mpct * mpcEndSigma(@floatFromInt(empt_i));
+            const saved = mpc_enabled;
+            mpc_enabled = false; // 验证是中局语义,不带 MPC(也防递归互扰)
+            const v = search(b, 2, -INF, INF, ply, false);
+            mpc_enabled = saved;
+            if (!aborted) {
+                if (v >= beta + thr) {
+                    mpc_end_used = true;
+                    return beta;
+                }
+                if (v <= alpha - thr) {
+                    mpc_end_used = true;
+                    return alpha;
+                }
+            }
+        }
+    }
+
     // ⑥ MPC:中局节点估值远离窗口时,浅层零窗口验证代替完整搜索。
     // 失败即回完整搜索,只损失验证成本;σ 偏差方向已由拟合余量兜住。
     if (mpc_enabled and !exact and depth >= MPC_MIN_DEPTH and mpc_root_depth - depth >= MPC_IGNORE) {
-        const dv: i32 = @intCast(((@as(u32, @bitCast(depth)) >> 2) & 0xFE) ^ (@as(u32, @bitCast(depth)) & 1));
-        const eval0 = pattern.eval(b);
+        // dv = 深度的 1/4,**向上**取整到偶数,再对齐原深度奇偶。取整方向不是
+        // 随便选的:σ 拟合面(tools/fit-mpc.mjs PAIRS)按 d12↔dv4 采的,向下
+        // 取偶会让 d12 落回 dv2,偏离标定面 → σ 系统性偏小 → 过剪。
+        const dv: i32 = @intCast((((@as(u32, @bitCast(depth)) >> 2) + 1) & 0xFE) ^ (@as(u32, @bitCast(depth)) & 1));
+        const eval0 = evalInc(b, ply);
         const sig = mpc_mpct * mpcSigma(@floatFromInt(64 - b.discs()), @floatFromInt(dv));
         const err0 = sig;
         const errS = sig;
@@ -403,6 +467,13 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
     i = 0;
     while (i < n) : (i += 1) {
         const nb = rules.playMove(b, moves[i], flips[i]);
+        // ④ 子节点状态 = 父状态**整份抄过来**再打增量(moveUpdate 只动受影响
+        // 的表,但基础必须是父状态 —— 直接在未初始化的 ply+1 上加增量就是
+        // 当场翻车的那种 bug);每个兄弟都重抄一遍,父状态永不动。
+        if (eval_u == null) {
+            ply_inc[ply + 1] = ply_inc[ply];
+            inc.moveUpdate(&ply_inc[ply + 1], moves[i], flips[i], ply_inc[ply].home_to_move);
+        }
         var v: f32 = undefined;
         if (i == 0) {
             v = -search(nb, depth - 1, -beta, -alpha, ply + 1, exact);
@@ -444,6 +515,7 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
 pub fn solveExact(b: rules.Board) f32 {
     if (!tt_ready) clearTT();
     stability.ensureInit();
+    inc.ensureTables();
     nodes = 0;
     evals = 0;
     aborted = false;
@@ -486,18 +558,36 @@ fn pickTie(order: *const [MAX_MOVES]u32, rv: *const [MAX_MOVES]f32, moves: *cons
 // **浅层零窗口验证搜索**代替完整搜索;误差界 σ 来自本引擎的实测分差
 // (tools/fit-mpc.mjs 采集拟合,零中心标准差 + 12% 安全余量 —— σ 偏大只是
 // 少剪,偏小会剪错,宁大勿小)。σ 模型:σ = c0 + c1·empties + c2·d_verify。
+// c2 < 0(验证越深误差越小)成立的前提是采样对贴着 dv 公式的映射
+// (8↔2 / 10↔2 / 12↔4,见 fit-mpc.mjs PAIRS)—— 模型没有 d 项,c2 兼职
+// 「节点更深 → 误差更大」的替身,采样偏离运行时映射会把 σ 拟歪。
 pub threadlocal var mpc_enabled: bool = false;
 pub threadlocal var mpc_mpct: f32 = 0;
 /// 当前根深度(rootSearch 每轮设置):Egaroucid 的 first_depth - depth ≥ 5
 /// 保证离根太近的节点不做 MPC(根附近的剪枝误差会被整棵树放大)。
 pub threadlocal var mpc_root_depth: i32 = 0;
-const MPC_SIGMA = [4]f32{ 10.029, -0.0984, 0.4454, 0 };
+const MPC_SIGMA = [4]f32{ 11.667, -0.0665, -0.7164, 0 };
 const MPC_MIN_DEPTH: i32 = 8; // 验证搜索自身也要有点质量
 const MPC_IGNORE: i32 = 2; // 距根过近不剪(Egaroucid 用 5,那是 d20+ 的世界;
 // 我们的档位顶到 d10,IGNORE=5 会让条件区间为空 —— 10-5=5 < MIN_DEPTH 8)
 
 inline fn mpcSigma(empties: f32, d_verify: f32) f32 {
     return @max(2.0, MPC_SIGMA[0] + MPC_SIGMA[1] * empties + MPC_SIGMA[2] * d_verify);
+}
+
+// ── ⑥b 尾盘 MPC(exact 求解内的概率剪枝)────────────────────────────
+/// 纯精确带下沿(空位数):>0 时 exact 求解在「空数 > 下沿+1」的节点允许
+/// 用中局 dv2 评估搜索做剪枝(概率性);0 = 关闭(exact 内永不 MPC,现状)。
+pub threadlocal var mpc_end_pure: i32 = 0;
+/// 本轮求解是否命中过尾盘剪枝(thinkSeeded 复位):命中过则 engineExact()
+/// 必须报 0 —— 概率分不得当终局判决(UI 会显示凭空的"胜 N 子")。
+pub threadlocal var mpc_end_used: bool = false;
+/// σ_end(E):中局 dv2 搜索分 vs 精确解的零中心 SD 线性模型,已含 12% 余量。
+/// probe-endmpc 实测 14/16/18 空(n=6~8/桶,量级级精度;随机局面偏难,
+/// 对真实局面偏保守)。无静态前置过滤:静态估值在该带误差 19~21 子,
+/// 门槛会大到永不触发,研究文档建议直接放弃。
+inline fn mpcEndSigma(empt: f32) f32 {
+    return @max(4.0, 23.5 - 0.73 * empt);
 }
 
 pub const Result = struct {
@@ -515,6 +605,11 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
     const moves = &ply_moves[0];
     const flips = &ply_flips[0];
     const scores = &ply_scores[0];
+
+    // ④ 增量状态每轮从根**全量重置**(帧属方 = 根行棋方):迭代加深反复重降,
+    // 上一轮/上一手留在 ply 0 的东西靠这里盖掉。懒建表兜住任意线程首用。
+    inc.ensureTables();
+    if (eval_u == null) inc.set(b, true, &ply_inc[0]);
 
     const m = rules.moves(b);
     if (m == 0) return .{ .move = -1 };
@@ -567,6 +662,12 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
     while (k < n) : (k += 1) {
         const idx = order[k];
         const nb = rules.playMove(b, moves[idx], flips[idx]);
+        // ④ 根子节点状态(搜索入口的 ply 不变式从这里开始成立);同上:先抄
+        // 父状态再打增量
+        if (eval_u == null) {
+            ply_inc[1] = ply_inc[0];
+            inc.moveUpdate(&ply_inc[1], moves[idx], flips[idx], ply_inc[0].home_to_move);
+        }
         var v: f32 = undefined;
         if (k == 0) {
             v = -search(nb, depth - 1, -beta, -alpha, 1, exact);
@@ -607,10 +708,12 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
 pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u64, seed: u64) Result {
     if (!tt_ready) clearTT();
     stability.ensureInit();
+    inc.ensureTables();
     rng_state = seed;
     nodes = 0;
     evals = 0;
     aborted = false;
+    mpc_end_used = false;
     node_limit = node_budget;
 
     const empties = 64 - b.discs();
@@ -638,9 +741,16 @@ pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budg
     for (&rv) |*x| x.* = 0;
 
     if (empties <= endgame_empty) {
-        // 残局:先前置中层迭代加深定根排序,再完全求解
+        // 残局:先前置中层迭代加深定根排序,再(混合)求解。
+        // ⑥b 混合模式(mpc_end_pure>0 且带内还有 ≥3 空):主搜只搜
+        // (空数−下沿)层 —— 内部节点中局排序/窗口,叶子落进纯精确带后
+        // 转窗口内完全求解(search 的 depth<=0 分支);带内(≤下沿+1)不触发
+        // 尾盘 MPC。下层空间里的 ⑥b 概率剪枝继续在带上沿兜底。
+        const hybrid: bool = mpc_end_pure > 0 and empties > @as(i32, mpc_end_pure) + 2;
+        const solve_depth: i32 = if (hybrid) @as(i32, @intCast(empties)) - mpc_end_pure else @as(i32, @intCast(empties)) + 2;
         var d: u32 = 2;
-        const pre = @min(@min((empties + 1) / 2, depth_max), empties);
+        var pre = @min(@min((empties + 1) / 2, depth_max), empties);
+        if (hybrid) pre = @min(pre, @as(u32, @intCast(solve_depth)));
         // 预搜限吃预算的 1/3:预算被预搜耗尽时,完全求解还留得下大头,
         // engineExact() 不会因为"预搜炫技"而丢掉精确性。
         const saved_limit = node_limit;
@@ -661,6 +771,9 @@ pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budg
             // (训练标签不受影响:playGame 对 only 的分数本来就不采信。)
             if (!aborted) {
                 const nb = rules.play(b, @intCast(last.move));
+                // ④ 这条直搜不经 rootSearch,ply 0 状态在这里补上(exact 不读
+                // 增量求值,但不变式不许有例外)
+                if (eval_u == null) inc.set(nb, true, &ply_inc[0]);
                 last.score = -search(nb, @intCast(64 - nb.discs() + 4), -INF, INF, 0, true);
                 last.exact = true;
                 last.endgame = true;
@@ -668,8 +781,8 @@ pub fn thinkSeeded(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budg
             last.nodes = nodes;
             return last;
         }
-        // 空位数 +2 余量:虚着不消耗深度
-        var r = rootSearch(b, @intCast(empties + 2), true, &order, &rv) catch return last;
+        // 纯精确:空数 +2 余量(虚着不消耗深度);混合:空数 − 下沿(叶子即带内)
+        var r = rootSearch(b, solve_depth, true, &order, &rv) catch return last;
         r.nodes = nodes;
         if (aborted) {
             last.nodes = nodes;
