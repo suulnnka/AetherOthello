@@ -188,14 +188,15 @@ function renderBoard() {
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const piece = board[r][c];
-      const isHint = !gameOver && piece === null && legalNow.has(r * 8 + c);
+      /* 提示只属于行棋方:人机模式轮到 AI 时,高亮类和点都不给 */
+      const isHint = !gameOver && piece === null && (!vsAI || turn === humanColor) && legalNow.has(r * 8 + c);
       const cell = el('button', {
         class: 'rv-cell' + (isHint ? ' hint' : '') + (lastMove && lastMove[0] === r && lastMove[1] === c ? ' last' : ''),
         dataset: { r: String(r), c: String(c) },
         onClick: () => humanMove(r, c),
       });
       if (piece) cell.append(el('div', { class: `rv-piece ${piece}${lastMove && lastMove[0] === r && lastMove[1] === c ? ' just' : ''}` }));
-      else if (isHint && (!vsAI || turn === humanColor)) cell.append(el('div', { class: 'rv-hint-dot' }));
+      else if (isHint) cell.append(el('div', { class: 'rv-hint-dot' }));
       boardEl.append(cell);
     }
   }
@@ -424,10 +425,7 @@ async function aiMove() {
   try {
     const res = await requestThink();
     if (!res || gen !== searchGen || gameOver || !document.contains(appEl)) return;
-    if (res.book) {   // 书着秒回:垫点延迟让节奏像「想了一下」,期间作废靠 gen 失配
-      await new Promise((ok) => setTimeout(ok, 350 + Math.random() * 450));
-      if (gen !== searchGen || gameOver || !document.contains(appEl)) return;
-    }
+    // 书着秒回,不再垫延迟(曾经的 350~800ms「像想了一下」被判定为 bug)
     /* AI 的手也按新鲜局面裁决 */
     const st = await fetchState(color);
     if (!st || gen !== searchGen || gameOver || !document.contains(appEl)) return;
@@ -470,6 +468,7 @@ function doUndo() {
   const last = moves[moves.length - 1];
   lastMove = last ? [last.r, last.c] : null;
   gameOver = false;
+  legalNow = new Map();   // 旧局面的提示缓存作废,renderBoard 读它画点,不清就残留到新状态回包
   infoL.textContent = '';
   renderBoard();
   if (vsAI && turn === aiColor()) setTimeout(aiMove, 260);
@@ -490,6 +489,7 @@ const newBtn = el('button', { class: 'btn primary', title: '重新开始一局',
   killWorker();
   gameSeed = 1 + Math.floor(Math.random() * 2 ** 47);
   board = initBoard(); turn = 'b'; gameOver = false; lastMove = null; moves = [];
+  legalNow = new Map();   // 清旧提示缓存:refresh 首帧就渲染,别拿上一局的点画新局
   infoL.textContent = '';
   refresh();
   if (vsAI && turn === aiColor()) setTimeout(aiMove, 260);
