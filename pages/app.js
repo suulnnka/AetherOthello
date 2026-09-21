@@ -144,6 +144,17 @@ let levelsResolve = null;
 const aiColor = () => other(humanColor);
 const lvName = () => levels[levelIdx]?.name ?? '—';
 
+/* 终局弹窗缓冲(600ms):终局画面先落地,给玩家一点反应时间再弹结算。
+ * 缓冲期里的新对局 / 悔棋 / 换边 / 人机切换都调 cancelEndDlg 取消 ——
+ * 不然这些操作之后还会蹦出上一局的结算框。 */
+const END_DLG_MS = 600;
+let endDlgTimer = 0;
+const cancelEndDlg = () => { clearTimeout(endDlgTimer); endDlgTimer = 0; };
+const popEndDlg = (show) => {
+  cancelEndDlg();
+  endDlgTimer = setTimeout(() => { endDlgTimer = 0; show(); }, END_DLG_MS);
+};
+
 const statusL = el('span', {}, '');
 const infoL = el('span', {
   class: 'mono', style: { fontSize: '11px', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -247,7 +258,8 @@ function finish(st) {
       ? (winnerAbs === humanColor ? '🎉 你赢了!' : 'AI 获胜')
       : `🎉 ${winner}获胜`;
   }
-  showDialog({ title, message: msg });
+  /* 结算弹窗缓一拍:让玩家看清终局盘面再弹;缓冲期里的操作会取消它 */
+  popEndDlg(() => showDialog({ title, message: msg }));
   statusL.textContent = line;
 }
 
@@ -494,6 +506,7 @@ async function aiMove(paceMs = 0) {
 function doUndo() {
   if (!moves.length) return;
   killWorker();
+  cancelEndDlg();
   let n = 1;
   if (vsAI && turn === humanColor && moves.length >= 2) n = 2;
   while (n-- > 0 && moves.length) {
@@ -515,6 +528,7 @@ function doUndo() {
 /** 换边:与 AI 互换执子方。棋盘上下对称,无需转向 */
 function switchSide() {
   killWorker();
+  cancelEndDlg();
   humanColor = other(humanColor);
   renderBoard();
   if (!gameOver && turn === aiColor()) aiMove(AI_PACE_MS);
@@ -524,6 +538,7 @@ function switchSide() {
 /* ---------- 工具栏(结构与 webos 应用一致)---------- */
 const newBtn = el('button', { class: 'btn primary', title: '重新开始一局', onClick: () => {
   killWorker();
+  cancelEndDlg();
   board = initBoard(); turn = 'b'; gameOver = false; lastMove = null; moves = [];
   legalNow = new Map();   // 清旧提示缓存:refresh 首帧就渲染,别拿上一局的点画新局
   infoL.textContent = '';
@@ -547,6 +562,7 @@ const aiBtn = el('button', {
   class: 'btn', title: '切换人机 / 双人对战',
   onClick: (e) => {
     killWorker();
+    cancelEndDlg();
     vsAI = !vsAI;
     e.currentTarget.replaceChildren(vsAI ? '人机' : '双人');
     sideBtn.disabled = !vsAI;
