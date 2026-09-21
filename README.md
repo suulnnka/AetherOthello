@@ -39,6 +39,15 @@ python3 -m http.server 8000     # 仓库根起服
   原生 u64 位棋盘 + 38 张模式表评估);WebOS 黑白棋应用线上跑的是这套。
 - `legacy_js` —— `src/engine.js`(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解),作为
   **参照实现 / 历史版本**保留。
+- `rust` —— **Rust 重写试验**(2026-09-21):`rust/` 下用 Rust 逐句移植 zig 通道
+  (规则 / 38 表折叠 / 稳定子 / 尾盘专用 / PVS+TT+MPC / 增量评估 / 开局书),
+  导出面与 zig 完全同名同签名,`src/worker.js` 一行不改。**模型复用不重训**:
+  `weights.bin` / `book-openings.bin` 经 `include_bytes!` 原样嵌入;训练器不移植。
+  构建:`node tools/build-rust.mjs`(cargo → wasm → 落到 `wasm/othello.wasm` +
+  自动跑 probe-wasm)。验证全绿:probe-wasm(含 40 残局精确解 = JS 参照)、
+  probe-contract、WebOS 侧 e2e T34;搜索树与 zig 逐节点一致,NPS 同量级
+  (中局约为 zig 的 87~94%,尾部反超)。体积 raw 118KB / gzip 45.6KB
+  (zig 为 79.6/38.5,差距来自 Rust 的边界检查与代码生成,闸门内)。
 
 两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`),所以上层(UI、浏览器探针、
 对比脚本)换实现不用改代码 —— 这也是两手准备的意义:同一个局面,两条分支的结果可以

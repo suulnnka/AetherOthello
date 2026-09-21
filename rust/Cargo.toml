@@ -1,0 +1,20 @@
+[package]
+name = "othello-engine"
+version = "0.1.0"
+edition = "2021"
+description = "AetherOthello 引擎的 Rust 重写试验(rust 分支):与 zig 通道同 ABI、同数据(weights.bin / book-openings.bin 复用),训练器不移植"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+# 对齐 zig 侧 build.zig 的取舍:ReleaseFast 语义(opt 3 + 不留调试段)。
+# strip 不是可选项:不 strip 的话 name 等自定义段会把 wasm 顶到几百 KB。
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+overflow-checks = false
+debug-assertions = false
