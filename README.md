@@ -46,7 +46,12 @@ python3 -m http.server 8000     # 仓库根起服
   构建:`node tools/build-rust.mjs`(cargo → wasm → 落到 `wasm/othello.wasm` +
   自动跑 probe-wasm)。验证全绿:probe-wasm(含 40 残局精确解 = JS 参照)、
   probe-contract、WebOS 侧 e2e T34;搜索树与 zig 逐节点一致。热路径已免检
-  (get_unchecked(C 语义,rustc 无全局开关):NPS 24手 d10 +5%、52手 d10 +32% 超 zig;
+  (get_unchecked,rustc 无全局开关)。性能(bench-wasm 背靠背同条件重测,
+  只看 >20ms 的长样本位置):Rust 快约 10~23%(24手 d10 5.37 vs 4.90M、
+  12手 d10 5.49 vs 4.47M);本机 run-to-run 噪声可达 ±25%,毫秒级短样本读数
+  不可信。**两边共用同一个 LLVM 后端**(zig 0.16 的 wasm32 默认即 LLVM,
+  `-fllvm` 构建与默认构建逐字节相同),差异来自前端 IR 细节而非优化器等级;
+  下一个真正的杠杆是两边都还没开的 wasm SIMD128(popcount 目前是软件实现)。
   体积 raw 116KB / gzip 44.2KB(zig 为 79.6/38.5,闸门 92.2% 内)。
 
 两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`),所以上层(UI、浏览器探针、
