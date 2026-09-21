@@ -11,6 +11,22 @@
   --accent: #5b6cff;
   --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+
+  /* ---- 窗体 / 页脚 / 棋盘的尺寸都从这里出 ----
+   * 页脚宽度锁成窗体同宽(见 .page-foot),才不会跟着浏览器窗口走到屏幕两边;
+   * 棋盘是固定像素的,窗体的最小尺寸也直接由它推出来(见 --win-min-*),
+   * 浏览器窗口再小棋盘也不会被裁掉。 */
+  --win-w: 620px;
+  --win-h: 640px;
+  --cell: 56px;                              /* 棋盘格距 */
+  --gap: 3px;                                /* 格缝 */
+  --bpad: 8px;                               /* 棋盘内边距 */
+  /* 棋盘自然尺寸 + fitBoard() 的四周留白 24(见 app.js) */
+  --board-w: calc(var(--cell) * 8 + var(--gap) * 7 + var(--bpad) * 2 + 24px);
+  --board-h: var(--board-w);
+  /* 窗体最小 = 棋盘 + 窗内铬(工具栏 44 + 状态栏 26)+ 窗框(标题栏 38 + 上下边框 2) */
+  --win-min-w: calc(var(--board-w) + 2px);
+  --win-min-h: calc(var(--board-h) + 110px);
 }
 html[data-theme="light"] {
   --bg: #eef0f4;
@@ -52,8 +68,11 @@ a:hover { text-decoration: underline; }
 /* ============ 桌面:webos 壁纸同族的渐变底 ============ */
 .desktop {
   height: 100%;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 14px; padding: 22px;
+  /* 居中交给子项的 margin:auto,不用 align/justify center:浏览器窗口比窗体最小
+   * 尺寸还小时,auto 外边距归零、内容从左上开始排,滚动条能够到;用 center 会把
+   * 溢出的一半甩到左上边界之外,那部分永远滚不到。 */
+  display: flex; flex-direction: column;
+  gap: 14px; padding: 22px; overflow: auto;
   background:
     radial-gradient(130% 100% at 50% 0%, transparent 55%, rgba(0, 0, 0, 0.22)),
     radial-gradient(120% 90% at 50% 8%, #2b3560, #20264a 55%, #151a35);
@@ -67,8 +86,11 @@ html[data-theme="light"] .desktop {
 /* ============ 窗体(样式对齐 webos 的 .win)============ */
 .win {
   display: flex; flex-direction: column;
-  width: min(620px, 100%);
-  height: min(640px, 100%);
+  margin: auto;                       /* 横竖都靠 auto 外边距居中(理由见 .desktop) */
+  width: min(var(--win-w), 100%);
+  min-width: var(--win-min-w);        /* 装不下棋盘就不再缩,缺口交给 .desktop 滚动 */
+  height: min(var(--win-h), 100%);
+  min-height: var(--win-min-h);
   background: var(--panel-solid);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -108,10 +130,13 @@ a.wbtn { color: var(--text-2); }
 .win-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .win-body > .app { flex: 1; }
 
+/* 页脚:宽度锁成窗体同宽(.win 同一套表达式),左右两项就贴在窗体的左右边缘,
+ * 不再随浏览器窗口宽度伸縮 —— 居中与 .win 一样走 margin auto。 */
 .page-foot {
   flex: none; font-size: 12px; color: rgba(255, 255, 255, 0.55);
   user-select: none; -webkit-user-select: none;
-  align-self: stretch;   /* 容器是居中列布局,不撑开就分不了栏 */
+  margin: 0 auto;
+  width: min(var(--win-w), 100%); min-width: var(--win-min-w);
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; row-gap: 4px;
 }
@@ -184,8 +209,9 @@ html[data-theme="light"] .page-foot { color: rgba(30, 42, 80, 0.55); }
 /* 固定像素布局,缩放交给外层 .fit-wrap(见 app.js 的 fitBoard) */
 .fit-wrap { flex: none; transform-origin: center center; }
 .rv-board {
-  display: grid; grid-template-columns: repeat(8, 56px); grid-template-rows: repeat(8, 56px);
-  gap: 3px; background: #1c6b3c; padding: 8px; border-radius: 8px;
+  /* --cell / --gap / --bpad 都在 :root(棋盘尺寸与窗体最小尺寸共用一份) */
+  display: grid; grid-template-columns: repeat(8, var(--cell)); grid-template-rows: repeat(8, var(--cell));
+  gap: var(--gap); background: #1c6b3c; padding: var(--bpad); border-radius: 8px;
   box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45), 0 8px 26px rgba(0, 0, 0, 0.35);
 }
 .rv-cell {
