@@ -50,8 +50,11 @@ python3 -m http.server 8000     # 仓库根起服
   只看 >20ms 的长样本位置):Rust 快约 10~23%(24手 d10 5.37 vs 4.90M、
   12手 d10 5.49 vs 4.47M);本机 run-to-run 噪声可达 ±25%,毫秒级短样本读数
   不可信。**两边共用同一个 LLVM 后端**(zig 0.16 的 wasm32 默认即 LLVM,
-  `-fllvm` 构建与默认构建逐字节相同),差异来自前端 IR 细节而非优化器等级;
-  下一个真正的杠杆是两边都还没开的 wasm SIMD128(popcount 目前是软件实现)。
+  `-fllvm` 构建与默认构建逐字节相同),差异来自前端 IR 细节而非优化器等级。
+  ⚠ popcnt 说法勘误(2026-09-21,tools/watcheck.mjs 反汇编验证):i32/i64.popcnt
+  是 wasm **MVP 核心指令**,与 SIMD128 无关;两边 count_ones 都已是单条原生
+  i64.popcnt(zig 65 处 / rust 80 处,SWAR 位技巧掩码 0 处)—— 它不是性能差异
+  来源。体积差(wat 2.0 万行 vs 3.4 万行)是 Rust 前端生成代码量更大的体现。
   体积 raw 116KB / gzip 44.2KB(zig 为 79.6/38.5,闸门 92.2% 内)。
 
 两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`),所以上层(UI、浏览器探针、
