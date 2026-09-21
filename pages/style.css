@@ -268,6 +268,10 @@ dialog#dlg {
 dialog#dlg::backdrop { background: rgba(5, 9, 20, 0.38); backdrop-filter: blur(1.5px); }
 .dlg-card {
   background: var(--panel-solid);
+  /* ⚠ 必须显式设 color:<dialog> 的 UA 默认 color:canvastext 会直接盖过 body 的
+   * var(--text);页面没声明 color-scheme 时 canvastext 解析成黑色,深色模式标题
+   * 就变成黑字深底看不见。卡片显式给色,标题(.dlg-title 无独立色)顺带继承对。 */
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
