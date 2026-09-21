@@ -13,7 +13,7 @@ use crate::inc;
 use crate::pattern;
 use crate::rules::{self, Board};
 use crate::stability;
-use crate::G;
+use crate::{uv, ur, urw, uvw, G};
 
 pub const INF: f32 = 1e30;
 
@@ -86,7 +86,7 @@ fn hint_slot_of(b: Board) -> usize {
 
 #[inline]
 fn hint_store(b: Board, mv: u32) {
-    let h = &mut HINT.w()[hint_slot_of(b)];
+    let h = unsafe { urw(HINT.w(), hint_slot_of(b)) };
     h.own = b.own;
     h.opp = b.opp;
     h.mv = mv as i8;
@@ -229,7 +229,8 @@ fn parity_mask(empty: u64) -> u64 {
 /// ④ 增量路径的量化求值:与 pattern::eval 逐位相等(同一整数和 × 同一 scale)
 #[inline]
 fn eval_inc(_b: Board, ply: u32) -> f32 {
-    let s = &PLY_INC.r()[ply as usize];
+    // 免检:ply < MAX_PLY(search 入口的 ply+2 闸保证)
+    let s = unsafe { ur(PLY_INC.r(), ply as usize) };
     let ph = pattern::phase_of(s.discs);
     inc::sum_int(s) as f32 * pattern::scales(ph)
 }
@@ -255,7 +256,7 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
     let mut promo: i32 = -1; // TT / 提示表给出的首着法(排序提升用)
     if depth > 0 {
         slot = slot_of(b, exact);
-        let e = &TT.r()[slot];
+        let e = unsafe { ur(TT.r(), slot) };
         if e.own == b.own && e.opp == b.opp {
             if e.depth as i32 >= depth
                 && (e.flag == F_EXACT
@@ -267,7 +268,7 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
             promo = e.mv as i32;
         }
         if promo < 0 {
-            let h = &HINT.r()[hint_slot_of(b)];
+            let h = unsafe { ur(HINT.r(), hint_slot_of(b)) };
             if h.own == b.own && h.opp == b.opp {
                 promo = h.mv as i32;
             }
@@ -293,8 +294,9 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
         if rules::moves(sw) == 0 {
             return terminal_score(b);
         }
-        PLY_INC.w()[ply as usize + 1] = PLY_INC.r()[ply as usize];
-        inc::pass_flip(&mut PLY_INC.w()[ply as usize + 1]);
+        let st = unsafe { urw(PLY_INC.w(), ply as usize + 1) };
+        *st = *unsafe { ur(PLY_INC.r(), ply as usize) };
+        inc::pass_flip(st);
         return -search(sw, depth, -beta, -alpha, ply + 1, exact);
     }
 
@@ -362,6 +364,11 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
     }
 
     let par: u64 = if exact { parity_mask(b.empty()) } else { 0 };
+    // 每层暂存区:整层捕获成行引用(免检;下标域见各注释)
+    let p = ply as usize;
+    let mvs = unsafe { urw(PLY_MOVES.w(), p) };
+    let fls = unsafe { urw(PLY_FLIPS.w(), p) };
+    let scs = unsafe { urw(PLY_SCORES.w(), p) };
     let mut n: usize = 0;
     let mut mm = m;
     while mm != 0 {
@@ -369,10 +376,12 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
         mm &= mm - 1;
         let f = rules::flips(b, sq);
         let fc = f.count_ones() as i32;
-        PLY_MOVES.w()[ply as usize][n] = sq;
-        PLY_FLIPS.w()[ply as usize][n] = f;
+        unsafe {
+            uvw(mvs, n, sq);
+            uvw(fls, n, f);
+        }
         // 中局:翻子多优先;残局:翻子少优先(少给对手留行动力)
-        let mut s: i32 = W64O[sq as usize] as i32 + (if exact { -fc } else { fc }) * 2;
+        let mut s: i32 = unsafe { uv(&W64O, sq as usize) } as i32 + (if exact { -fc } else { fc }) * 2;
         if exact && (par >> sq) & 1 == 1 {
             s += 1000;
         }
@@ -385,10 +394,10 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
             s += potential_mob(nb.own, emp).count_ones() as i32 * 8;
             s -= potential_mob(nb.opp, emp).count_ones() as i32 * 10;
         }
-        PLY_SCORES.w()[ply as usize][n] = s;
+        unsafe { uvw(scs, n, s) };
         n += 1;
     }
-    PLY_CNT.w()[ply as usize] = n as u32;
+    unsafe { *urw(PLY_CNT.w(), p) = n as u32 };
 
     // 置换表/提示表最优着法换到队首。必须连翻子掩码一起换 ——
     // 漏搬会让队首着法配到别人的翻子掩码,make 出非法局面
@@ -396,50 +405,48 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
     if promo >= 0 {
         let want = promo as u32;
         let mut k = 0usize;
-        while k < n && PLY_MOVES.w()[ply as usize][k] != want {
+        while k < n && unsafe { uv(mvs, k) } != want {
             k += 1;
         }
         if k < n {
             if k > 0 {
-                let p = ply as usize;
-                PLY_MOVES.w()[p].swap(0, k);
-                PLY_SCORES.w()[p].swap(0, k);
-                PLY_FLIPS.w()[p].swap(0, k);
+                mvs.swap(0, k);
+                scs.swap(0, k);
+                fls.swap(0, k);
             }
             promo_first = true;
         }
     }
 
     let mut best: f32 = -INF;
-    let mut best_move = PLY_MOVES.r()[ply as usize][0];
+    let mut best_move = unsafe { uv(mvs, 0) };
     let alpha0 = alpha;
     let mut i = 0usize;
     while i < n {
         // 懒选择:搜到第 i 个着法前才在 [i..n) 里选剩余最大者换上来。
         // 第 0 轮在首着提升命中时必须跳过(TT/提示表着法优先于一切静态分)
         if !(i == 0 && promo_first) {
-            let p = ply as usize;
             let mut sel = i;
             let mut k = i + 1;
             while k < n {
-                if PLY_SCORES.r()[p][k] > PLY_SCORES.r()[p][sel] {
+                if unsafe { uv(scs, k) } > unsafe { uv(scs, sel) } {
                     sel = k;
                 }
                 k += 1;
             }
             if sel != i {
-                PLY_MOVES.w()[p].swap(i, sel);
-                PLY_SCORES.w()[p].swap(i, sel);
-                PLY_FLIPS.w()[p].swap(i, sel);
+                mvs.swap(i, sel);
+                scs.swap(i, sel);
+                fls.swap(i, sel);
             }
         }
-        let p = ply as usize;
-        let sq = PLY_MOVES.r()[p][i];
-        let f = PLY_FLIPS.r()[p][i];
+        let sq = unsafe { uv(mvs, i) };
+        let f = unsafe { uv(fls, i) };
         let nb = rules::play_move(b, sq, f);
         // ④ 子节点状态 = 父状态整份抄过来再打增量;父状态永不被就地改写
-        PLY_INC.w()[p + 1] = PLY_INC.r()[p];
-        inc::move_update(&mut PLY_INC.w()[p + 1], sq, f, PLY_INC.r()[p].home_to_move);
+        let st = unsafe { urw(PLY_INC.w(), p + 1) };
+        *st = *unsafe { ur(PLY_INC.r(), p) };
+        inc::move_update(st, sq, f, unsafe { ur(PLY_INC.r(), p) }.home_to_move);
         let v: f32;
         if i == 0 {
             v = -search(nb, depth - 1, -beta, -alpha, ply + 1, exact);
@@ -469,7 +476,7 @@ fn search(b: Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exact: bo
     }
 
     if depth > 0 && !ABORTED.r0() {
-        let e = &mut TT.w()[slot];
+        let e = unsafe { urw(TT.w(), slot) };
         // ⑦ 留深替换:同槽撞上同局面的更深记录时不覆盖;异局面照常覆盖
         if !(e.own == b.own && e.opp == b.opp && e.depth as i32 > depth) {
             e.own = b.own;
@@ -552,6 +559,9 @@ fn root_search(b: Board, depth: i32, exact: bool, order: &mut [u32; MAX_MOVES], 
         return Result::none();
     }
     let par: u64 = if exact { parity_mask(b.empty()) } else { 0 };
+    let mvs = unsafe { urw(PLY_MOVES.w(), 0) };
+    let fls = unsafe { urw(PLY_FLIPS.w(), 0) };
+    let scs = unsafe { urw(PLY_SCORES.w(), 0) };
     let mut n: usize = 0;
     let mut mm = m;
     while mm != 0 {
@@ -559,24 +569,27 @@ fn root_search(b: Board, depth: i32, exact: bool, order: &mut [u32; MAX_MOVES], 
         mm &= mm - 1;
         let f = rules::flips(b, sq);
         let fc = f.count_ones() as i32;
-        PLY_MOVES.w()[0][n] = sq;
-        PLY_FLIPS.w()[0][n] = f;
-        let mut s: i32 = W64O[sq as usize] as i32 + (if exact { -fc } else { fc }) * 2;
+        unsafe {
+            uvw(mvs, n, sq);
+            uvw(fls, n, f);
+        }
+        let mut s: i32 = unsafe { uv(&W64O, sq as usize) } as i32 + (if exact { -fc } else { fc }) * 2;
         if exact && (par >> sq) & 1 == 1 {
             s += 1000;
         }
-        PLY_SCORES.w()[0][n] = s;
+        unsafe { uvw(scs, n, s) };
         n += 1;
     }
-    PLY_CNT.w()[0] = n as u32;
+    unsafe { *urw(PLY_CNT.w(), 0) = n as u32 };
     *MPC_ROOT_DEPTH.w() = depth;
     if n == 1 {
         // 唯一着法也真搜(用户决策):score 是真搜索值;only 标记保留
-        let sq = PLY_MOVES.r()[0][0];
-        let f = PLY_FLIPS.r()[0][0];
+        let sq = unsafe { uv(mvs, 0) };
+        let f = unsafe { uv(fls, 0) };
         let nb = rules::play_move(b, sq, f);
-        PLY_INC.w()[1] = PLY_INC.r()[0];
-        inc::move_update(&mut PLY_INC.w()[1], sq, f, PLY_INC.r()[0].home_to_move);
+        let st = unsafe { urw(PLY_INC.w(), 1) };
+        *st = *unsafe { ur(PLY_INC.r(), 0) };
+        inc::move_update(st, sq, f, unsafe { ur(PLY_INC.r(), 0) }.home_to_move);
         let v = -search(nb, depth - 1, -INF, INF, 1, exact);
         let om = [sq];
         let os = [v];
@@ -600,9 +613,9 @@ fn root_search(b: Board, depth: i32, exact: bool, order: &mut [u32; MAX_MOVES], 
         let mut i = 1usize;
         while i < n {
             let oi = order[i];
-            let sc = PLY_SCORES.r()[0][oi as usize];
+            let sc = unsafe { uv(scs, oi as usize) };
             let mut j = i as isize - 1;
-            while j >= 0 && PLY_SCORES.r()[0][order[j as usize] as usize] < sc {
+            while j >= 0 && unsafe { uv(scs, order[j as usize] as usize) } < sc {
                 order[j as usize + 1] = order[j as usize];
                 j -= 1;
             }
@@ -616,11 +629,12 @@ fn root_search(b: Board, depth: i32, exact: bool, order: &mut [u32; MAX_MOVES], 
     let mut k = 0usize;
     while k < n {
         let idx = order[k] as usize;
-        let sq = PLY_MOVES.r()[0][idx];
-        let f = PLY_FLIPS.r()[0][idx];
+        let sq = unsafe { uv(mvs, idx) };
+        let f = unsafe { uv(fls, idx) };
         let nb = rules::play_move(b, sq, f);
-        PLY_INC.w()[1] = PLY_INC.r()[0];
-        inc::move_update(&mut PLY_INC.w()[1], sq, f, PLY_INC.r()[0].home_to_move);
+        let st = unsafe { urw(PLY_INC.w(), 1) };
+        *st = *unsafe { ur(PLY_INC.r(), 0) };
+        inc::move_update(st, sq, f, unsafe { ur(PLY_INC.r(), 0) }.home_to_move);
         let mut v: f32;
         // v_true:返回值是否被搜索窗口定死为真值 —— JS 的随机只吃真值项
         let mut v_true: bool;
@@ -666,13 +680,13 @@ fn root_search(b: Board, depth: i32, exact: bool, order: &mut [u32; MAX_MOVES], 
         let mvs: [u32; MAX_MOVES] = {
             let mut a = [0u32; MAX_MOVES];
             for t in 0..n {
-                a[t] = PLY_MOVES.r()[0][t];
+                a[t] = unsafe { uv(mvs, t) };
             }
             a
         };
         publish_root(&mvs[..n], &root_v[..n], &ROOT_TRUE_BUF.r().clone()[..n], n as u32, exact);
     }
-    Result { mv: PLY_MOVES.r()[0][best] as i32, score: root_v[best], depth: depth as u32, exact, only: false, endgame: false }
+    Result { mv: unsafe { uv(mvs, best) } as i32, score: root_v[best], depth: depth as u32, exact, only: false, endgame: false }
 }
 
 /// 完全求解前的中层预搜限吃预算的 1/3:预算被预搜耗尽时,完全求解还留得下大头

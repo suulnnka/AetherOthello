@@ -46,6 +46,29 @@ impl<T: Copy> G<T> {
     }
 }
 
+// ── 数组的免检访问(C 语义,zig 默认就是它)────────────────────────────
+// rustc 没有"全局关掉边界检查"的开关:release 下整数溢出检查默认关闭,
+// 但数组下标检查只能逐点用 get_unchecked 免检。引擎热路径的下标域全部是
+// **构造性有界**的:槽号 < PER_PHASE(38 张表几何的输出域)、ply < MAX_PLY
+// (search 入口就有 ply+2 >= MAX_PLY 的返回闸)、格号 < 64(u6 语义)、
+// TT/HINT 槽号是掩码后的值。init/解析等冷路径保持带检查的写法。
+#[inline(always)]
+pub unsafe fn uv<T: Copy, const N: usize>(a: &[T; N], i: usize) -> T {
+    unsafe { *a.get_unchecked(i) }
+}
+#[inline(always)]
+pub unsafe fn ur<'a, T, const N: usize>(a: &'a [T; N], i: usize) -> &'a T {
+    unsafe { a.get_unchecked(i) }
+}
+#[inline(always)]
+pub unsafe fn urw<'a, T, const N: usize>(a: &'a mut [T; N], i: usize) -> &'a mut T {
+    unsafe { a.get_unchecked_mut(i) }
+}
+#[inline(always)]
+pub unsafe fn uvw<T: Copy, const N: usize>(a: &mut [T; N], i: usize, v: T) {
+    unsafe { *a.get_unchecked_mut(i) = v; }
+}
+
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {

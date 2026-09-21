@@ -9,7 +9,7 @@
 
 use crate::pattern::{self, PTN_COUNT};
 use crate::rules::Board;
-use crate::G;
+use crate::{uv, ur, uvw, G};
 
 /// 每格 → 4 组 (表号 0-based, 3^位序)。格子恰被 4 张表覆盖(256 = 64×4)
 static CELL_PTN: G<[[u8; 4]; 64]> = G::new([[0; 4]; 64]);
@@ -94,11 +94,13 @@ pub fn pass_flip(s: &mut State) {
 
 #[inline]
 fn add_cell(s: &mut State, sq: u32, d: i32) {
-    let i = sq as usize;
+    // 免检:sq < 64(位板尾零),cell_* 表的每格恰 4 条、表号 < 38
+    let row = unsafe { uv(CELL_PTN.r(), sq as usize) }; // [u8; 4]
+    let pow = unsafe { uv(CELL_POW.r(), sq as usize) }; // [u32; 4]
     for k in 0..4 {
-        let idx = CELL_PTN.r()[i][k] as usize;
-        let v = s.slots[idx] as i64 + d as i64 * CELL_POW.r()[i][k] as i64;
-        s.slots[idx] = v as u32;
+        let idx = row[k] as usize;
+        let v = unsafe { uv(&s.slots, idx) } as i64 + d as i64 * pow[k] as i64;
+        unsafe { uvw(&mut s.slots, idx, v as u32) };
     }
 }
 
@@ -106,10 +108,10 @@ fn add_cell(s: &mut State, sq: u32, d: i32) {
 /// 38 次查表求和 + 按帧属方取号
 #[inline]
 pub fn sum_int(s: &State) -> i32 {
-    let tab = &pattern::wt_ref()[pattern::phase_of(s.discs)];
+    let tab = unsafe { ur(pattern::wt_ref(), pattern::phase_of(s.discs)) };
     let mut sum: i32 = 0;
     for i in 0..PTN_COUNT {
-        sum += tab[s.slots[i] as usize] as i32;
+        sum += unsafe { uv(tab, uv(&s.slots, i) as usize) } as i32;
     }
     if s.home_to_move {
         sum

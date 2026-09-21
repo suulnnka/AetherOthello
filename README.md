@@ -45,9 +45,9 @@ python3 -m http.server 8000     # 仓库根起服
   `weights.bin` / `book-openings.bin` 经 `include_bytes!` 原样嵌入;训练器不移植。
   构建:`node tools/build-rust.mjs`(cargo → wasm → 落到 `wasm/othello.wasm` +
   自动跑 probe-wasm)。验证全绿:probe-wasm(含 40 残局精确解 = JS 参照)、
-  probe-contract、WebOS 侧 e2e T34;搜索树与 zig 逐节点一致,NPS 同量级
-  (中局约为 zig 的 87~94%,尾部反超)。体积 raw 118KB / gzip 45.6KB
-  (zig 为 79.6/38.5,差距来自 Rust 的边界检查与代码生成,闸门内)。
+  probe-contract、WebOS 侧 e2e T34;搜索树与 zig 逐节点一致。热路径已免检
+  (get_unchecked(C 语义,rustc 无全局开关):NPS 24手 d10 +5%、52手 d10 +32% 超 zig;
+  体积 raw 116KB / gzip 44.2KB(zig 为 79.6/38.5,闸门 92.2% 内)。
 
 两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`),所以上层(UI、浏览器探针、
 对比脚本)换实现不用改代码 —— 这也是两手准备的意义:同一个局面,两条分支的结果可以

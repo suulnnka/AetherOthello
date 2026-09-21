@@ -14,7 +14,7 @@
 //! 轨道内取槽号最小者为代表,同一最小槽号既有 +1 又有 −1 达成者被制 0)。
 
 use crate::rules::Board;
-use crate::G;
+use crate::{uv, ur, G};
 
 pub const PTN_COUNT: usize = 38;
 /// 相位数:按子数均分 60 手(SPAN = 60/PHASES)。**必须与训练时一致**(3 档)。
@@ -410,11 +410,10 @@ pub fn eval(b: Board) -> f32 {
 pub fn eval_int(b: Board) -> i32 {
     let mut s = [0u32; PTN_COUNT];
     slot_indices(b, &mut s);
-    let ph = phase_of(b.discs());
-    let tab = &WT.r()[ph];
+    let tab = unsafe { ur(WT.r(), phase_of(b.discs())) };
     let mut sum: i32 = 0;
     for i in 0..PTN_COUNT {
-        sum += tab[s[i] as usize] as i32;
+        sum += unsafe { uv(tab, s[i] as usize) } as i32;
     }
     sum
 }
@@ -422,10 +421,10 @@ pub fn eval_int(b: Board) -> i32 {
 /// 已有槽号时的求值(求和顺序固定,便于逐位对拍)
 pub fn eval_slots(s: &[u32; PTN_COUNT], discs: u32) -> f32 {
     let ph = phase_of(discs);
-    let tab = &WT.r()[ph];
+    let tab = unsafe { ur(WT.r(), ph) };
     let mut sum: i32 = 0;
     for i in 0..PTN_COUNT {
-        sum += tab[s[i] as usize] as i32;
+        sum += unsafe { uv(tab, s[i] as usize) } as i32;
     }
     sum as f32 * SCALES.r()[ph]
 }

@@ -11,7 +11,7 @@
 //! 会把 wasm 撑爆(zig 侧实测 1MB+ 的教训)。
 
 use crate::rules::Board;
-use crate::G;
+use crate::{uv, ur, G};
 
 static EDGE_H: G<[[u64; 256]; 256]> = G::new([[0; 256]; 256]); // 稳定子摊在 bit 0..7(第 0 行)
 static EDGE_V: G<[[u64; 256]; 256]> = G::new([[0; 256]; 256]); // 稳定子摊在第 0 列
@@ -243,11 +243,15 @@ pub fn stable_counts(b: Board) -> (u32, u32) {
         d7: full_stab_diag(occ, &DIAG_RS),
         d9: full_stab_diag(occ, &DIAG_RC),
     };
-    // 四条边的稳定子合到一张位板上
-    let eb = EDGE_H.r()[row_byte(b.own, 0) as usize][row_byte(b.opp, 0) as usize]
-        | EDGE_H.r()[row_byte(b.own, 7) as usize][row_byte(b.opp, 7) as usize] << 56
-        | EDGE_V.r()[col_byte(b.own, 0) as usize][col_byte(b.opp, 0) as usize]
-        | EDGE_V.r()[col_byte(b.own, 7) as usize][col_byte(b.opp, 7) as usize] << 7;
+    // 四条边的稳定子合到一张位板上(两级免检:线型是 u8,域 [0,256))
+    let eh = EDGE_H.r();
+    let ev = EDGE_V.r();
+    let eb = unsafe {
+        uv(ur(eh, row_byte(b.own, 0) as usize), row_byte(b.opp, 0) as usize)
+            | uv(ur(eh, row_byte(b.own, 7) as usize), row_byte(b.opp, 7) as usize) << 56
+            | uv(ur(ev, col_byte(b.own, 0) as usize), col_byte(b.opp, 0) as usize)
+            | uv(ur(ev, col_byte(b.own, 7) as usize), col_byte(b.opp, 7) as usize) << 7
+    };
     let so = closure_of(b.own, eb, full);
     let sp = closure_of(b.opp, eb, full);
     (so.count_ones(), sp.count_ones())
@@ -263,7 +267,7 @@ pub struct CutOutcome {
 /// 稳定子剪枝入口(只许在 exact 搜索里调用 —— 界是子差意义的)
 pub fn cut(b: Board, alpha_in: f32, beta_in: f32) -> CutOutcome {
     let empties = 64 - b.discs();
-    let th = NWS_THRESHOLD[empties as usize] as f32;
+    let th = unsafe { uv(&NWS_THRESHOLD, empties as usize) } as f32;
     let alpha = alpha_in;
     let beta = beta_in;
     if alpha < th {
