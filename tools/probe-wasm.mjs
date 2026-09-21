@@ -209,18 +209,39 @@ const bookHit = lastNodes() === 0;
 ok(bookHit || X.engineDepth() >= 2, `engineDepth() = ${X.engineDepth()}(书命中或迭代加深至少 2 层)`);
 ok(bookHit || lastNodes() > 0, `engineNodes = ${lastNodes()}(书命中则为 0)`);
 ok(X.engineExact() === 0, `engineExact() = ${X.engineExact()}(中局不是精确解)`);
-/* ⑩b 开局名透传:根局面(书入口)无名;走一手后的 5 子局面带名 —— 数据事实:
- * 该局面由 Diagonal/Parallel/Perpendicular 三条命名开局换位汇成,三名并列。
- * 指针指向 blob(@embedFile 常量)内部,按地址+长度读线性内存。 */
+/* ⑩b 开局名透传(2026-09-21 单一化策略):根局面(书入口)无名;首手后的
+ * 5 子局面由 Diagonal/Parallel/Perpendicular 三条命名开局换位汇成 —— 三名
+ * 并列,按「并列局面不展示」策略无名。正向路径:沿命名开局线走,名字应
+ * 出现、单名(名字池不再有「 / 」并列串)且除并列枢纽本格外持续显示(沿
+ * 树继承,穿过枢纽不断链)。指针指向 blob(@embedFile 常量)内部,按
+ * 地址+长度读线性内存。 */
 if (bookHit && typeof X.engineBookNamePtr === 'function' && X.memory) {
+  const bookNameOf = () => {
+    const np = X.engineBookNamePtr(), nl = X.engineBookNameLen();
+    return np > 0 && nl > 0
+      ? new TextDecoder().decode(new Uint8Array(X.memory.buffer, np, nl)) : '';
+  };
   ok(X.engineBookNamePtr() === 0, `初始局面书命中:无名(engineBookNamePtr() = 0)`);
   const [o1, p1] = applyMove(INIT_B, INIT_W, m0);
   thinkBB(o1, p1, 6, 8);
-  const np = X.engineBookNamePtr(), nl = X.engineBookNameLen();
-  const nm = np > 0 && nl > 0
-    ? new TextDecoder().decode(new Uint8Array(X.memory.buffer, np, nl)) : '';
-  ok(X.engineBook() === 1 && nm === 'Diagonal Opening / Parallel Opening / Perpendicular Opening',
-    `首手后书命中带开局名:${JSON.stringify(nm)}`);
+  ok(X.engineBook() === 1 && X.engineBookNamePtr() === 0,
+    `首手后书命中:三名并列局面不展示(engineBookNamePtr() = 0)`);
+  // 沿 openings.json 的 Heath 线逐手走查(线上可能穿过书外前缀,容忍书外)
+  const cat = JSON.parse(fs.readFileSync(new URL('../book/openings.json', import.meta.url), 'utf8'));
+  const line = cat.openings.find((o) => o.name === 'Heath');
+  let wo = INIT_B, wp = INIT_W, metName = false;
+  const seen = [];
+  for (const mv of line.moves) {
+    const sq = (Number(mv[1]) - 1) * 8 + (mv.charCodeAt(0) - 97);
+    [wo, wp] = applyMove(wo, wp, sq);
+    thinkBB(wo, wp, 6, 8);
+    if (X.engineBook() !== 1) { seen.push(`${mv}:(书外)`); continue; }
+    const nm = bookNameOf();
+    ok(!nm.includes(' / '), `开局名单名:${JSON.stringify(nm)}(Heath 线 @ ${mv})`);
+    if (nm) metName = true;
+    seen.push(`${mv}:${nm || '—'}`);
+  }
+  ok(metName, `Heath 线全程(${seen.join(' ')})至少出现一次开局名`);
 }
 /* ⑩c 根着法清单(选着策略上移到 JS 后的输出通道):书命中 → 全部首着与
  * **精确**书值(初始 4 着全 0 分,同分位号升序 → 第 0 项 d3,与 engineThink

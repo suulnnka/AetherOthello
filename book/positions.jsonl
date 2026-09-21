@@ -25,14 +25,14 @@
 {"board":"---------------------------OOO---XXXO-------XO------------------","discs":9,"value":0,"best":["d3","g6"],"names":["Swallow"]}
 {"board":"---------------------------OX-----OOO-----XXXO------------------","discs":9,"value":-4,"best":["d3"]}
 {"board":"---------------------------OX-----OOOO----XXX-------------------","discs":9,"value":0,"best":["g4","g6"],"names":["Cow"]}
-{"board":"---------------------------OX-----OOX-----OXX-----O-------------","discs":9,"value":-2,"best":["d3"],"names":["Snake","Peasant"]}
+{"board":"---------------------------OX-----OOX-----OXX-----O-------------","discs":9,"value":-2,"best":["d3"],"names":["Snake"]}
 {"board":"---------------------------OX-----OOX-----XOX-------O-----------","discs":9,"value":-2,"best":["b5"],"names":["Raccoon Dog"]}
-{"board":"---------------------------OX-----OOX-----XOX------O------------","discs":9,"value":0,"best":["e8"],"names":["Heath","Tobidashi \"Jumping Out"]}
+{"board":"---------------------------OX-----OOX-----XOX------O------------","discs":9,"value":0,"best":["e8"],"names":["Heath"]}
 {"board":"---------------------------OX-----OOX-----XXO--------O----------","discs":9,"value":-4,"best":["c4"],"names":["Lollipop","Hamilton"]}
 {"board":"---------------------------XXX-----OXO----OOO-------------------","discs":9,"value":-4,"best":["g5","g6"]}
 {"board":"--------------------------OOOX----OOOO-----X--------------------","discs":9,"value":2,"best":["b4"]}
 {"board":"----------------------X----OOOO---OOX-------X-------------------","discs":9,"value":2,"best":["g5"]}
-{"board":"---------------------O-----OO-----OOX-----XXX-------------------","discs":9,"value":-2,"best":["b4"],"names":["Buffalo","Kenichi Variation"]}
+{"board":"---------------------O-----OO-----OOX-----XXX-------------------","discs":9,"value":-2,"best":["b4"],"names":["Buffalo"]}
 {"board":"---------------------O-----OO----XXXO-------XO------------------","discs":9,"value":4,"best":["g2"]}
 {"board":"---------------------O-----XOO----OOXO-----X--------------------","discs":9,"value":-4,"best":["e3","g4"]}
 {"board":"---------------------O----XOO-----OOX-----O-X-------------------","discs":9,"value":2,"best":["c7"]}
@@ -44,7 +44,7 @@
 {"board":"--------------------O------OOO----XXOX-----O--------------------","discs":9,"value":-4,"best":["d3"],"names":["Italian"]}
 {"board":"--------------------O------OOX----OXX------XO-------------------","discs":9,"value":-2,"best":["c6"],"names":["Mimura","Bhagat","Inoue","Shaman","Ralle","Rose"]}
 {"board":"--------------------O-----OOOX-----OX------XO-------------------","discs":9,"value":-4,"best":["f4"],"names":["Horse"]}
-{"board":"---------------------------OOO-----OOO-----OXO------X-----------","discs":10,"value":-2,"best":["e3"],"names":["Heath-Chimney","Mass-Turning"]}
+{"board":"---------------------------OOO-----OOO-----OXO------X-----------","discs":10,"value":-2,"best":["e3"],"names":["Heath-Chimney"]}
 {"board":"---------------------------OOO-----OXO-----XOO----X-------------","discs":10,"value":4,"best":["g7"],"names":["Lollipop"]}
 {"board":"---------------------------OOO-----OXXX---O-XO------------------","discs":10,"value":-4,"best":["b2"]}
 {"board":"---------------------------OOO-----XOO----XXX-O-----------------","discs":10,"value":4,"best":["f3","e3","g4"]}
@@ -90,7 +90,7 @@
 {"board":"--------------------O-----XOXX----XOO-----XO--------------------","discs":10,"value":4,"best":["f2"]}
 {"board":"--------------------O-----XXO------XOOO---XO--------------------","discs":10,"value":-3,"best":["d7"]}
 {"board":"--------------------O-----XXO------XOXX-----O-O-----------------","discs":10,"value":-4,"best":["f6"]}
-{"board":"--------------------O-----XXO------XXO------OOO-----------------","discs":10,"value":-4,"best":["f3"],"names":["Aubrey","Tanaka"]}
+{"board":"--------------------O-----XXO------XXO------OOO-----------------","discs":10,"value":-4,"best":["f3"],"names":["Aubrey"]}
 {"board":"--------------------O-----XXO-O----XXO------OX------------------","discs":10,"value":-2,"best":["g5"],"names":["BergTiger"]}
 {"board":"--------------------OO----XOOX----OOX------X--------------------","discs":10,"value":2,"best":["b5"],"names":["Bhagat","Inoue","Shaman","Ralle","Rose"]}
 {"board":"---------------------------OOO---XXOO-----O-XXX-----------------","discs":11,"value":3,"best":["e3"]}
@@ -154,7 +154,7 @@
 {"board":"--------------------O------OOX----OXX-----OXO------X------------","discs":11,"value":-4,"best":["c4"]}
 {"board":"--------------------O------OOX----OXXX-----XXX------------------","discs":11,"value":-2,"best":["c6"]}
 {"board":"--------------------O------OXX----OOXO----XO-------O------------","discs":11,"value":-4,"best":["f6","e6"],"names":["Bhagat"]}
-{"board":"--------------------O------XOO----XXXXO-----OX------------------","discs":11,"value":-1,"best":["b6"],"names":["Cow Bat","Bat","Cambridge"]}
+{"board":"--------------------O------XOO----XXXXO-----OX------------------","discs":11,"value":-1,"best":["b6"],"names":["Cow Bat"]}
 {"board":"--------------------O------XOOO---XXXO------OX------------------","discs":11,"value":-4,"best":["e3","d2"]}
 {"board":"--------------------O------XOX----XOXX----O-OX------------------","discs":11,"value":0,"best":["e7","d7"]}
 {"board":"--------------------O------XOX----XXXO------OOO-----------------","discs":11,"value":-2,"best":["c6"]}

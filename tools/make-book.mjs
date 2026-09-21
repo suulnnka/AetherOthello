@@ -182,9 +182,10 @@ for (const o of catalog.openings) {
   if (!pos) { outOfBook++; continue; }   // 终局面不在开局库 → 名字不会出现,弃
   hit++;
   pos.names ??= [];
-  // 同一开局在目录里常以 4 个对称首手变体各挂一条,规范化后落到同一局面 → 去重
+  // 同一开局在目录里常以 4 个对称首手变体各挂一条,规范化后落到同一局面 → 去重。
+  // 别名不进局面的名字集(2026-09-21 用户决策):主名+别名并列是**假并列**,
+  // 会把本可单名显示的局面顶成「不展示」;别名保留在 openings.json 目录里。
   if (!pos.names.includes(en.name)) pos.names.push(en.name);
-  for (const a of en.aliases) if (!pos.names.includes(a)) pos.names.push(a);
   openingsOut.push({ name: en.name, aliases: en.aliases,
     moves, family: o.family ?? '', discs: moves.length + 4 });
 }
@@ -226,9 +227,9 @@ if (OCD_DIR) {
 /* ── 2c. 生成 Zig 侧开局书 blob(src/zig/book-openings.bin)───────────────
  * 数据:保留局面 = 初始局面起的 BFS 最短路径(token 序列;token = 线性格号
  * 0..63,过手 = 64)+ 精确值 + 最佳着法集(含根:零长路径 = 首手书内入口)
- * + 开局名(positions.jsonl 的 names 拼接,「 / 」分隔 —— 同一局面常有多个
- * 命名开局经换位汇到一起,只留一个会瞎报;engine.zig 零拷贝直读,UI 显示
- * 「开局库 · 名字 · 估值」,同 chess 的开局库行)。
+ * + 开局名(**单一化**策略见 ⑤ 的解析:单名局面显名、并列局面不展示、
+ * 无名局面沿树继承最近命名祖先 —— 名字池里没有「 / 」并列串;
+ * engine.zig 零拷贝直读,UI 显示「开局库 · 名字 · 估值」,同 chess 的开局库行)。
  * 格式:**字节对齐**(用户决策 2026-09-20)。最终产物经 gzip 传输/计费,
  * DEFLATE 按字节匹配:字节对齐的小字母表重复 token 对 LZ77/Huffman 友好,
  * 6 bit 打包反而打散字节边界抬高熵;解码侧也免去位读取器。
@@ -236,10 +237,10 @@ if (OCD_DIR) {
  *   share u8(与上一条共享前缀长)+ slen u8 + slen×u8 token
  *   + (value+8) u8 + bcnt u8 + bcnt×u8 token + nameRef u8
  *   (nameRef = 名字池下标+1,0 = 无名)
- * 尾接名字池:u16 池大小 LE + 每串 u8 len + len×u8 ASCII(62 串、最长 84 B,
- * 都在 u8 域内;名字串按条目序首次出现入池,确定性)。
+ * 尾接名字池:u16 池大小 LE + 每串 u8 len + len×u8 ASCII(单名串、u8 域内;
+ * 名字串按条目序首次出现入池,确定性)。
  * 前缀共享把 ~9K token 压到 ~1.4K。自检:独立解码回放,校验终局面键、
- * 值一致与最佳着法合法性,不过就抛错;名字段单独对 positions.jsonl 复核。 */
+ * 值一致与最佳着法合法性,不过就抛错;名字段按 ⑤ 策略独立走父链复核。 */
 const STD_INITIAL = (() => {
   const b = new Array(64).fill('-');
   b[idxOf(3, 3)] = 'O'; b[idxOf(4, 4)] = 'O'; // d4 e5
@@ -355,18 +356,44 @@ entries.sort((a, b) => {
   return a.path.length - b.path.length;
 });
 
-// 名字池:同局面多名「 / 」拼接;按条目序首次出现入池(确定性),u8 下标域内。
-const namePool = new Map(); // 拼接串 → 池下标(1 起)
-const nameRefOf = (names) => {
-  if (!names || !names.length) return 0;
-  const s = names.join(' / ');
+// ── ⑤ 开局名单一化 + 沿树继承(2026-09-21 用户决策)────────────────────
+// 旧版把同局面的全部名字「 / 」拼接进名字池 —— 换位汇合点上常出现五六个
+// 名字并列,一行放不下也说明不了"现在下的是哪个开局"。新策略:
+//   · 单名局面 → 显示该名;
+//   · 并列局面(≥2 名)→ **不展示**:书着是值容差随机选的,挑"最强着法"
+//     的名字展示可能和实际走出的着法对不上,误导;并列局面本就是开局
+//     未定形的换位点,无名最诚实。**继承链穿过它不断**——本格空一格,
+//     后代照常引用更上层的单名祖先;
+//   · 无名局面 → 继承最近单名祖先:开局名随行棋推进**持续显示**(后续
+//     书着也有名字),行至更具体的定式局面被覆盖(Heath → Heath-Bat → …)。
+// nodes 的 Map 插入序 = BFS 发现序,父必先于子解析;根局面(初始局面)
+// 无名、无父 → ''。
+const displayName = new Map(); // 规范键 → 单名或 ''
+const ancestorName = new Map(); // 规范键 → 最近单名祖先的名(无名/并列局面的继承源)
+for (const [key, node] of nodes) {
+  const ns = positions.get(key)?.names;
+  if (ns && ns.length === 1) {
+    displayName.set(key, ns[0]);
+    ancestorName.set(key, ns[0]);
+  } else {
+    displayName.set(key, ns && ns.length >= 2 ? '' : (ancestorName.get(node.parent) ?? ''));
+    ancestorName.set(key, ancestorName.get(node.parent) ?? '');
+  }
+}
+
+// 名字池:⑤ 解析出的单名入池;按条目序首次出现入池(确定性),u8 下标域内。
+const namePool = new Map(); // 串 → 池下标(1 起)
+const nameRefOf = (s) => {
+  if (!s) return 0;
   if (!/^[\x20-\x7e]*$/.test(s)) throw new Error(`开局名非 ASCII:${JSON.stringify(s)}`);
   if (s.length > 255) throw new Error(`开局名超 u8 长度(${s.length}):${JSON.stringify(s)}`);
   if (!namePool.has(s)) namePool.set(s, namePool.size + 1);
   return namePool.get(s);
 };
-const refs = entries.map((e) => nameRefOf(e.names));
+const refs = entries.map((e) => nameRefOf(displayName.get(e.key) ?? ''));
 if (namePool.size > 255) throw new Error(`名字池超 u8 下标域(${namePool.size})`);
+const namedEntries = refs.filter((r) => r !== 0).length;
+const multiPos = [...nodes.keys()].filter((k) => (positions.get(k)?.names?.length ?? 0) >= 2).length;
 
 const blobArr = [entries.length & 0xFF, (entries.length >> 8) & 0xFF, PASS_TOK];
 let tokFlat = 0, tokShared = 0, prevPath = [];
@@ -453,9 +480,23 @@ const blob = Buffer.from(blobArr);
     off += len;
   }
   for (const { key, nameRef } of decodedNames) {
-    const want = positions.get(key).names?.join(' / ') ?? '';
+    // ⑤ 策略的独立走查(不共用 displayName,沿 nodes 父链重推):
+    // 单名 → 该名;并列(≥2)→ '';无名 → 最近**单名**祖先(并列祖先只空
+    // 本格、不断链,走查跳过它继续上溯)。
+    let want = '';
+    const ns = positions.get(key)?.names;
+    if (ns && ns.length === 1) want = ns[0];
+    else if (!ns || ns.length === 0) {
+      let p = nodes.get(key)?.parent ?? null;
+      while (p !== null) {
+        const pn = positions.get(p)?.names;
+        if (pn && pn.length === 1) { want = pn[0]; break; }
+        p = nodes.get(p)?.parent ?? null;
+      }
+    }
     const got = nameRef ? pool[nameRef - 1] : '';
     if (got !== want) throw new Error(`自检失败:名字不符 ${JSON.stringify({ key, want, got })}`);
+    if (got.includes(' / ')) throw new Error(`自检失败:名字池出现并列串 ${JSON.stringify(got)}`);
   }
   if (off !== blob.length) throw new Error(`自检失败:长度不匹配(${off} vs ${blob.length})`);
 }
@@ -482,5 +523,5 @@ if (OCD_DIR) {
   const namedAfter = [...positions.values()].filter((p) => p.names).length;
   console.log(`OCD 目录:${ocdPatterns} 图案,命中书内局面 ${ocdHit},新增名字 ${ocdNewNames},挂名局面 ${namedBeforeOcd} → ${namedAfter}`);
 }
-console.log(`开局书 blob:${entries.length} 条(不可达跳过 ${unreachable}),路径 token 平铺 ${tokFlat} → 前缀共享后 ${tokShared},名字池 ${poolStrs.length} 串,raw ${blob.length} B / gzip ${zlib.gzipSync(blob).length} B → src/zig/book-openings.bin`);
+console.log(`开局书 blob:${entries.length} 条(不可达跳过 ${unreachable}),路径 token 平铺 ${tokFlat} → 前缀共享后 ${tokShared},名字池 ${poolStrs.length} 串,命名条目 ${namedEntries}/${entries.length}(并列局面 ${multiPos} 不展示),raw ${blob.length} B / gzip ${zlib.gzipSync(blob).length} B → src/zig/book-openings.bin`);
 console.log(`✓ 已写 book/positions.jsonl(${posSorted.length} 局面)与 book/openings.json`);
