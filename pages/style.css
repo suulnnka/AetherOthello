@@ -258,7 +258,12 @@ html[data-theme="light"] .page-foot { color: rgba(30, 42, 80, 0.55); }
 /* ============ 对话框 / 吐司(webos 系统对话框与通知同族)============ */
 dialog#dlg {
   border: 0; padding: 0; background: none;
-  max-width: min(360px, calc(100vw - 40px));
+  /* ⚠ 顶层 *{margin:0} 把 UA 给 modal dialog 的 margin:auto 一起抹掉了。
+   * 少了它,position:fixed + inset:0 + fit-content 的弹窗会贴在视口左上角
+   * (而不是居中);宽度也得锁,UA 的 width:fit-content 会缩成文字那么窄。 */
+  margin: auto;
+  width: min(360px, calc(100vw - 40px));
+  max-width: calc(100vw - 40px);
 }
 dialog#dlg::backdrop { background: rgba(5, 9, 20, 0.38); backdrop-filter: blur(1.5px); }
 .dlg-card {
