@@ -2,7 +2,7 @@
   "name": "aether-othello",
   "version": "1.0.0",
   "type": "module",
-  "description": "纯 JS 黑白棋(Reversi/Othello)引擎:位棋盘 + PVS/置换表/残局完全求解,零依赖、无 DOM",
+  "description": "黑白棋(Reversi/Othello)AI 引擎:Zig→wasm 主通道 + 纯 JS 参照实现;位棋盘 + PVS/置换表/残局完全求解 + 开局书,零依赖、无 DOM",
   "main": "src/engine.js",
   "exports": {
     ".": "./src/engine.js",
