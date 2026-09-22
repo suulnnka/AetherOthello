@@ -1,9 +1,8 @@
 # AetherOthello
 
-黑白棋(Reversi / Othello)AI 引擎:一份引擎、两套实现。线上跑的是 **Zig 写的
-u64 位棋盘引擎**,编译成 `othello.wasm` 在浏览器 Worker 里运行;另有一份
-**纯 JavaScript 参照实现**(探针对拍与 bench 的基准)。两套都零依赖、无 DOM、
-浏览器与 Node 通用。
+黑白棋(Reversi / Othello)AI 引擎。线上跑的是 **Zig 写的 u64 位棋盘引擎**,
+编译成 `othello.wasm` 在浏览器 Worker 里运行;`src/engine.js` 是纯 JS 参照实现,
+留作探针对拍与 bench 的基准。零依赖、无 DOM、浏览器与 Node 通用。
 
 从 [WebOS](<https://github.com/suulnnka/AetherWebOS>)(纯前端网页操作系统)的
 黑白棋应用中抽离而来。引擎代码全部自研;权重与开局书用了公开数据与第三方
@@ -12,25 +11,16 @@ u64 位棋盘引擎**,编译成 `othello.wasm` 在浏览器 Worker 里运行;另
 **在线体验:** 打开 <https://suulnnka.github.io/AetherWebOS/> 启动「黑白棋」应用
 (线上跑的就是 wasm 通道)。
 
-## 在线对弈页(GitHub Pages,免 CI)
+## 在线对弈页(GitHub Pages)
 
-本仓库自带一个**开箱即玩的对弈页**:布局与交互取自 WebOS 的黑白棋应用,
-同一份 Worker 契约接的也是本仓库的引擎 —— wasm 通道(zig → othello.wasm)。**没有构建、没有 CI**:站点即仓库本身,GitHub Pages 原样引用仓库文件直接出页面:
-
-**<https://suulnnka.github.io/AetherOthello/>**
-
-页面即仓库布局:`index.html`(根)+ `pages/`(页面资产),引擎入口在 `src/`、
-wasm 在 `wasm/`,全部按相对路径引用 —— 本地预览无需构建,仓库根起任意静态
-服务器即可:
+本仓库自带一个**开箱即玩的对弈页**:<https://suulnnka.github.io/AetherOthello/>,
+布局与交互取自 WebOS 的黑白棋应用,接的也是本仓库的引擎(wasm 通道)。
+站点即仓库本身(`index.html` + `pages/` + `src/` + `wasm/` 全按相对路径引用,
+Pages 原样出文件),本地预览无需构建,仓库根起任意静态服务器即可:
 
 ```bash
-python3 -m http.server 8000     # 仓库根起服
-# 打开 http://localhost:8000/
+python3 -m http.server 8000     # 仓库根起服,打开 http://localhost:8000/
 ```
-
-线上开启只需一次:仓库 **Settings → Pages → Build and deployment → Source 选
-「Deploy from a branch」,Branch 选默认分支 + `/(root)`**;此后每次推送自动更新,
-不走任何 Actions。
 
 功能与 WebOS 应用一致:新对局 / 难度(引擎自报表)/ 人机或双人 / 换边 / 悔棋;
 提示点标合法落点,高难度档残局自动完全求解并给出精确子差;开局书命中时
@@ -38,25 +28,19 @@ python3 -m http.server 8000     # 仓库根起服
 引擎搜索信息。
 
 
-## 两条分支:一个接口,两份实现
+## 分支
 
-- `main` —— 线上分支:`src/zig/*` → `wasm/othello.wasm`(原生 u64 位棋盘 + 38 张
-  模式表评估),WebOS 黑白棋应用跑的是这套。
-- `legacy_js` —— `src/engine.js`(纯 JS 位棋盘:PVS + 置换表 + 残局完全求解),
-  **参照实现 / 历史版本**。
-
-两边共用**同一份 Worker 契约**(`docs/WORKER-PROTOCOL.md`),UI、探针、对比脚本
-换实现不用改代码;难度表不属于契约(每个分支各一份、各自调),细则都在协议文档里。
-四个共享文件 —— 协议文档 + `tools/probe-contract.mjs` / `compare-branches.mjs` /
-`match-branches.mjs` —— **必须逐字节一致**(要改就两边一起改,`compare-branches`
-开头会核对,不一致直接判负)。
-
-```bash
-npm test                          # JS 参照实现的行为回归(规则/完全求解/难度的对拍基线)
-node tools/probe-contract.mjs     # 契约冒烟(当前分支)
-node tools/compare-branches.mjs   # 当前分支 vs 另一条分支,同一批局面并排看
-node tools/match-branches.mjs     # 两条分支互相下整局 —— 棋力只有对打能回答
-```
+- `main`(本分支)—— 线上引擎:Zig → `othello.wasm`。
+- `legacy_js` —— 纯 JS 通道的历史版本,已冻结(JS 版本淘汰中,仅存档)。
+- `rust` —— **Rust 重写试验**:`rust/` 把 zig 通道逐句移植成 Rust(cargo →
+  wasm32),导出面与 zig 同名同签名、`src/worker.js` 零改动,`weights.bin` /
+  `book-openings.bin` 原样复用(训练器不搬);搜索树与 zig 逐节点一致。
+  **rust/zig 性能对比**(bench-wasm 同条件背靠背重测,只看 >20ms 长样本):
+  **Rust 快约 10~23%**(机器 run-to-run 噪声可达 ±25%,毫秒级短样本不可信)。
+  两边共用同一个 LLVM 后端(zig 0.16 的 wasm32 默认即 LLVM,`-fllvm` 与默认
+  构建逐字节相同),差异来自前端 IR 细节 —— wat 级差异定位见该分支
+  `docs/wasm-wat-diff.md`(popcnt 两边都是原生指令,不是差异来源)。
+  体积代价:gzip 44.2KB(zig 38.5,体积闸门内)。构建:`node tools/build-rust.mjs`。
 
 ## Zig 通道(线上引擎:原生 u64 位棋盘 → wasm)
 
@@ -90,6 +74,7 @@ zig build test                   # 规则与折叠的单元测试
 zig build selftest               # perft / 折叠 / 求值基准(原生 exe)
 zig build train -- --games=500 --iters=4   # 自对弈训练并覆盖 src/zig/weights.bin
 node tools/probe-wasm.mjs        # wasm 导出层冒烟(Node 里直接实例化)
+node tools/probe-contract.mjs    # Worker 消息层冒烟(levels/ping/state/think 全链路)
 node tools/probe-eval.mjs        # 中局求值:JS 独立重算槽号与整数加权和,逐位对拍
 node tools/probe-exact.mjs       # 残局精确解:与 JS 参照实现逐局面相等
 ```
@@ -109,7 +94,7 @@ node tools/probe-exact.mjs       # 残局精确解:与 JS 参照实现逐局面�
   已全部落地(附完成记录、对打验收、遗留清单与**验收工具箱命令速查** ——
   全部测试/基准/探针命令以那张表为准)。
 - `docs/endgame-mpc-study.md`:残局 MPC 专项研究(⑥b 已按草图实现,默认关)。
-- `docs/WORKER-PROTOCOL.md`:Worker 消息契约(两条分支共用)。
+- `docs/WORKER-PROTOCOL.md`:Worker 消息接口(请求/应答字段与语义)。
 - `book/README.md`:开局书数据资源 —— 局面/开局名/估值的来源、许可与再生成。
 
 ## 致谢
