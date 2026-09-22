@@ -20,7 +20,10 @@
 - `board`:**规范化局面**(8 个棋盘对称中取字典序最小键),行优先
   `i = rank*8 + file`(a1 = 0),`X` = 当前行棋方,`O` = 对方,`-` = 空。
   **不做换色折叠**——估值是行棋方视角的。
-- `value`:Egaroucid 网页版书的精确值 = 终局子差(negamax 口径,正值 = 行棋方赢)。
+- `value`:精确终局子差(negamax 口径,正值 = 行棋方赢),取自 Egaroucid
+  开局书 —— **这是整套数据里唯一借自其他软件开局库的东西**。估值本身是
+  可自算的搜索结果(本引擎的残局完全求解跑一遍同样能得出),取现成只为
+  省时间,见文末「来源与许可」。
   初始局面 = 0(与"Othello 已解为和棋"一致,可作对拍锚点)。
   **值域精简**(2026-09-20 用户决策,参考 Egaroucid min-book 思想):
   \|值\| > 4 的局面不存(±4 本身保留)—— 胜负已定的边角开局没有保留价值,
@@ -52,23 +55,34 @@ Cow),该条目因日文名+重复不再单独出现,修正记录留在目录备�
 
 ## 来源与许可(重要)
 
-- **开局名(局面键,第三来源)**:Egaroucid `bin/resources/openings/english/`
-  的 `openings.txt` + `openings_fork.txt`,即经典 OCD 社区目录
-  (https://berg.earthlingz.de/ocd/data/openings2/openings.txt)。
-  按 64 字符 0/1/. 盘面图案标注英文名;手工目录、1 的颜色取向行间不一致,
-  生成器原样/换色双试、原样优先。局面键标注能覆盖"换序到达"的同局面,
-  这是序列目录做不到的。外部路径,经 `--ocd-dir` 传入,文件本体不入库。
-- **估值与最佳着法**:Egaroucid 网页版开局书(`bin/web_book/web_book.csv`,
-  由其 `extract_web_book.py` 从 GPL-3.0 的 `book_const.hpp` 导出)。
-  **GPL-3.0 数据**——嵌入分发前必须重新确认许可取舍
-  (docs/engine-improvement-plan.md 红线 4;本目录入库是 2026-09-20 的
-  用户决策,分发语义仍待定)。CSV 本体不入库。
-- **开局名**:`openings-catalog.json` 是事实性汇编("researched index"),
+三类原料,性质各不相同 —— **局面与开局名都是公开数据收集,唯一借自其他
+软件开局库的只有估值**(以及它附带的最佳着法),而估值是可自算的搜索结果:
+
+- **局面**:公开数据 —— 都是初始局面可达的定石树局面,经 Egaroucid 公开
+  书树取集(Egaroucid 的局面本体即构建自公开对局数据)。局面本身没有
+  许可问题:同一批局面任何人从初始局面回放即可复得。
+- **开局名**:两个公开来源 ——
+  ① **序列目录**:`openings-catalog.json` 是事实性汇编("researched index"),
   每条出处见其 `sources`:Robert Gatliff 目录(UltraBoardGames)、
   香港定石列表、GreenOthello、オセロWiki 定石、othlog 定石集。
   开局名与着法序列是事实数据,目录按来源保留出处 URL;
   `openings.json` 的 sources 只保留 ASCII 字段(日文站点的原版标题
   看备份)。
+  ② **局面键标注**:Egaroucid `bin/resources/openings/english/` 的
+  `openings.txt` + `openings_fork.txt`,即经典 OCD 社区目录
+  (https://berg.earthlingz.de/ocd/data/openings2/openings.txt)。
+  按 64 字符 0/1/. 盘面图案标注英文名;手工目录、1 的颜色取向行间不一致,
+  生成器原样/换色双试、原样优先。局面键标注能覆盖"换序到达"的同局面,
+  这是序列目录做不到的。外部路径,经 `--ocd-dir` 传入,文件本体不入库。
+- **估值与最佳着法**:借自 Egaroucid 网页版开局书(`bin/web_book/web_book.csv`,
+  由其 `extract_web_book.py` 从 GPL-3.0 的 `book_const.hpp` 导出)。
+  **这是省时间的借用,不是数据依赖**:书值 = 精确终局子差,用本引擎自己的
+  残局完全求解把这几千个浅层局面各解一遍就能得出(Egaroucid 只是已经把
+  这些机时烧过了);自对弈主线书 v1 也是同性质的自产数据。CSV 本体不入库、
+  不再分发,嵌入的只是裁剪后的产物;上游书数据为 GPL-3.0,若分发许可
+  取舍翻车,退路就是换自算路线重新生成(自家残局完全求解批量出值,
+  喂同一条打包管线),下游与引擎都不用改。取舍记录见
+  docs/engine-improvement-plan.md 红线 4;本目录入库是 2026-09-20 的用户决策。
 
 ## Zig 侧嵌入(src/zig/book-openings.bin)
 

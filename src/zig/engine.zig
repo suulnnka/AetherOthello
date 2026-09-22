@@ -21,9 +21,10 @@ const weights = @embedFile("weights.bin");
 // ── ⑩ 开局书 v2:Egaroucid 精确书(≤14 子、|值|≤4)────────────────────
 // 数据:src/zig/book-openings.bin,由 tools/make-book.mjs 从 Egaroucid 网页版
 // 书生成(914 条局面 = 从初始局面的 BFS 最短路 + 精确值 + 最佳着法集
-// + 开局名池 —— 同局面多名「 / 」拼接;生成方式/来源/许可见 book/README.md
-// —— GPL 来源数据,入库为 2026-09-20 用户决策)。替代旧版自对弈主线书
-// (genbook/book.bin 已移除)。
+// + 开局名池 —— 单名:并列局面不展示、无名局面沿树继承最近单名祖先;
+// 生成方式/来源/许可见 book/README.md:局面与开局名是公开数据收集,
+// 唯一借自其他软件开局库的是估值,而估值自家求解也能算出,取现成只为
+// 省时间)。替代旧版自对弈主线书(genbook/book.bin 已移除)。
 //
 // 布局(字节对齐,gzip 友好 —— DEFLATE 按字节匹配,6 bit 打包反而吃亏):
 //   u16 条数 LE + u8 passTok(=64);条目按路径字典序排序,每条 =

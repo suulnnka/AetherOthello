@@ -25,7 +25,7 @@
 不属于契约 —— 那正是对比要看的东西。
 
 ```bash
-git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/compare-branches.mjs tools/match-branches.mjs
+git diff main legacy_js -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/compare-branches.mjs tools/match-branches.mjs
 # 应当没有任何输出
 ```
 
@@ -87,6 +87,7 @@ git diff main zig -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tools/comp
   opp: [lo, hi],                    // 对方位板
   level,                            // **本引擎**难度表的下标(见上;跨实现不可比)
   depth,                            // 可选:覆盖该档位的搜索深度上限(见下)
+  endMpc,                           // 可选:覆盖该档位的尾盘 MPC 带下沿(见下)
   empties,                          // 64 - 双方子数(state 回包里有,UI 透传即可)
 }
 ```
@@ -110,15 +111,16 @@ engineRootMove / engineRootScore / engineRootExact / engineRootTrue` 导出
 - **中局**(启发式):**真值着法 ±1 子**内均匀随机(engineRootTrue=1 才入池,
   第 0 项恒真值,池永不空)。
 
-### think 的 `depth`:可选覆盖
+### think 的 `depth` / `endMpc`:可选覆盖
 
 `depth` **只替换该档位的深度上限**,`end` / `budget` 仍取档位。缺省(不传 /
 `null` / `NaN`)时行为与不带该字段完全一致,`depthMax` 回包反映**实际生效**的值。
-
-它存在的理由是标定与跨实现对打:两边的难度表本来就不同(zig 默认档 d10、
-main 默认档 d8),不把深度钉住就分不清"棋力差"来自实现还是来自参数。
-`tools/match-branches.mjs` 的 `--depth` 就走这个字段(默认 6 层)。
-UI 不需要它 —— UI 要的是"这一档的完整体验",不是一个孤立的深度。
+`endMpc` 同理**只替换尾盘 MPC 带下沿**(0 = 关;仅带 ⑥b 实现的引擎消费,
+无该实现的引擎忽略)。UI 都不需要这两个字段 —— UI 要的是"这一档的完整体验",
+不是孤立的参数;它们存在的理由是标定与跨实现对打:两边的难度表本来就不同
+(wasm 默认档 d12、legacy_js 默认档 d8),不把参数钉住就分不清"棋力差"
+来自实现还是来自参数。
+`tools/match-branches.mjs` 的 `--depth` 就走 `depth` 字段(默认 6 层)。
 
 ### state:局面规则事实(合法性 / 翻子 / 数子 / 终局 / 胜者)
 
@@ -162,11 +164,13 @@ main(wasm 通道)当前是 worker 内的轻量 JS 位板遍历(wasm 暂无 legal
   exact,       // score 是否为**精确终局子差**
   nodes,       // 节点数
   book,        // 开局书命中(命中时 depth=0、nodes=0、score=书内精确值,行棋方
-                //   视角);可选字段,无书实现恒为 false —— UI 靠它标「开局库」
-                //   来源,别拿 depth=0 外推(书着与贪心在 depth 上同形)
-  name,        // 书命中**根局面**的开局名(可选,仅 book=1 且非空时携带):
-                //   blob 名字池的 ASCII 串,同一局面多名时「 / 」拼接(换位汇成
-                //   的局面常这样)。UI 显示「开局库 · 名字 · 估值」,同 chess
+                //   视角);可选字段,无书实现可不带(缺席同 false)—— UI 靠它
+                //   标「开局库」来源,别拿 depth=0 外推(书着与贪心在 depth 上同形)
+  name,        // 书命中局面的开局名(可选,仅 book=1 且非空时携带):
+                //   blob 名字池的 ASCII **单名** —— 生成器单一化:并列局面
+                //   (多开局换位汇成)不展示、无名局面沿树继承最近单名祖先,
+                //   名字池里没有「 / 」并列串(见 make-book.mjs ⑤)。
+                //   UI 显示「开局库 · 名字 · 估值」,同 chess
   empties,     // 原样回传
   ms,          // 耗时(毫秒,含引擎内部搜索;不含消息往返)
   engine,      // 信息字段:实现名('js' / 'wasm'),不参与断言

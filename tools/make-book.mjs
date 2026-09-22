@@ -1,11 +1,13 @@
 /* ============================================================
  * 开局资源生成器:开局局面 + 精确估值 + 开局名。
  *
- * 输入(两份外部数据,均不入库):
- *   1. Egaroucid 网页版书导出的 web_book.csv(52,850 局面,含精确终局
- *      子差与最佳着法)。生成方式见 Egaroucid 仓库 bin/web_book/
- *      extract_web_book.py;许可 GPL-3.0——估值数据由使用方自担,
- *      本仓库不再分发该 CSV 本身。
+ * 数据来源(局面与开局名 = 公开数据收集;估值 = 借自其他软件开局库):
+ *   1. Egaroucid 网页版书导出的 web_book.csv(52,850 局面)。**只借它的
+ *      估值与最佳着法** —— 那是可自算的搜索结果(本引擎残局完全求解
+ *      跑一遍同样能得出),取现成纯粹省时间;局面本体是公开定石树。
+ *      生成方式见 Egaroucid 仓库 bin/web_book/extract_web_book.py;
+ *      上游文件为 GPL-3.0,本仓库不再分发该 CSV 本体,嵌入的只是裁剪
+ *      产物(来源与许可详见 book/README.md)。
  *   2. book/openings-catalog.json:623 个命名开局的研究性索引
  *      (Gatliff 目录 / 香港定石列表 / 日文定石集,出处 URL 在文件内)。
  *
@@ -461,10 +463,9 @@ const blob = Buffer.from(blobArr);
     for (const t of best) {
       const f = t % 8, r = t >> 3;
       if (!flipsFor(b, f, r, 'X')) {
-        const tn = tree.get(key);
         const realLegal = [];
         for (let sq = 0; sq < 64; sq++) if (flipsFor(b, sq % 8, sq >> 3, 'X')) realLegal.push(sq);
-        throw new Error(`自检失败:第 ${i} 条 ${JSON.stringify({ path, best, tok: t, treeLegal: tn ? tn.legal : null, treeBest: tn ? tn.best : null, realLegal, board: b.join('') })}`);
+        throw new Error(`自检失败:第 ${i} 条 ${JSON.stringify({ path, best, tok: t, realLegal, board: b.join('') })}`);
       }
     }
     decodedNames.push({ key, nameRef });

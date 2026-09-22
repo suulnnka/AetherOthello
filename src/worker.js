@@ -1,7 +1,7 @@
 /* ============================================================
- * 黑白棋引擎 Worker —— **zig 通道**(zig 分支,线上跑的就是这套)
+ * 黑白棋引擎 Worker —— **wasm 通道**(main 分支,线上跑的就是这套)
  *
- * 消息契约见 docs/WORKER-PROTOCOL.md —— 与 main 分支的 src/worker.js
+ * 消息契约见 docs/WORKER-PROTOCOL.md —— 与 legacy_js 分支的 src/worker.js
  * (JS 参照实现)是**同一份接口**,所以 UI、探针、对比脚本换实现都不用改。
  * 那边也有同名文件、同样的消息进出,只是背后换成 src/engine.js;两边并排跑用
  * `node tools/compare-branches.mjs`。
@@ -34,9 +34,9 @@
  *                             对打要"同深度比棋力"时用,缺省完全不变
  *
  * state 的实现在本文件里是一段**轻量 JS 位板遍历**(逐空格 8 方向扫描):
- * wasm 当前没有 legal 导出、本机又没有 zig 工具链可重编 —— 落子合法性、翻转子
- * 与胜负判定是规则,必须住在引擎仓库,所以放 worker.js 而不是 UI;等 zig 工具链
- * 可用,可以下沉为 wasm 的 engineLegal/engineState 导出,消息契约不变。
+ * wasm 暂无 legal 导出(zig 工具链现已有,要下沉为 engineLegal/engineState
+ * 导出随时可做,消息契约不变)—— 落子合法性、翻转子与胜负判定是规则,
+ * 必须住在引擎仓库,所以放 worker.js 而不是 UI。
  *
  * 难度表住在引擎层(src/levels.js),**两套实现各一份、不要求一致** —— 搜索算法
  * 不同,同样的 depth/end/budget 在两边根本不是一回事。UI 只问不改,见上面 levels。
@@ -74,7 +74,7 @@ self.__engineTag = ENGINE_TAG;
  * 仓库绑死在打包器上。 */
 const WASM_URL = new URL('../wasm/othello.wasm', import.meta.url);
 
-/* ---- 局面规则(JS 位板,wasm 无 legal 导出期的过渡实现)----
+/* ---- 局面规则(JS 位板;wasm 暂无 legal 导出,规则事实住这里)----
  * bit = row*8+col,row0 = 最上一行,lo 装 bit0..31、hi 装 bit32..63 —— 与 think
  * 的位板编码一致。每个空格沿 8 方向扫描:连续的对方子之后必须接一枚己方子。
  * 这些全是黑白棋的规则事实(合法性 / 翻子 / 数子 / 终局 / 胜者),UI 不复判。 */
@@ -195,8 +195,9 @@ self.onmessage = (e) => {
   boot().then((X) => {
     const lv = LEVELS[d.level] ?? LEVELS[DEFAULT_LEVEL] ?? LEVELS[0];
     /* `depth` 是**可选覆盖**:只替换该档位的深度上限,end / budget 照旧取档位。
-     * 给标定与跨实现对打用 —— 两边难度表本来就不同(zig 默认 d10、main 默认 d8),
-     * 想"同深度比棋力"就必须能从外面把深度钉住,否则比的是两套参数而不是两种实现。
+     * 给标定与跨实现对打用 —— 两边难度表本来就不同(wasm 默认 d12、
+     * legacy_js 默认 d8),想"同深度比棋力"就必须能从外面把深度钉住,
+     * 否则比的是两套参数而不是两种实现。
      * 缺省(undefined / null / NaN)时行为与原来一字不差。 */
     const depthMax = Number.isFinite(d.depth) ? d.depth : lv.depth;
     const bud = Number(lv.budget) || 0;

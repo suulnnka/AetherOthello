@@ -111,8 +111,14 @@ node bench/duel.mjs bench/bench.mjs <你的版本>.mjs 200 5 4
 
 ## 文档
 
-`docs/reversi-ai-optimization.md`:引擎优化全过程 —— 提前收尾、跳过空方向、残局奇偶排序、
-前沿子估值、置换表设计(Zobrist 跨色碰撞分析),每项都有对弈/节点数实测数据与验收方法。
+- `docs/reversi-ai-optimization.md`:引擎优化全过程 —— 提前收尾、跳过空方向、
+  残局奇偶排序、前沿子估值、置换表设计(Zobrist 跨色碰撞分析),每项都有
+  对弈/节点数实测数据与验收方法(JS 参照实现时代的历史记述,文首有迁移说明)。
+- `docs/engine-improvement-plan.md`:对标 Egaroucid web 的 11 项施工清单,
+  已全部落地(附完成记录、对打验收与遗留清单)。
+- `docs/endgame-mpc-study.md`:残局 MPC 专项研究(⑥b 已按草图实现,默认关)。
+- `docs/WORKER-PROTOCOL.md`:Worker 消息契约(两条分支共用)。
+- `book/README.md`:开局书数据资源 —— 局面/开局名/估值的来源、许可与再生成。
 
 ## Zig 通道(原生 u64 位棋盘 → wasm)
 
