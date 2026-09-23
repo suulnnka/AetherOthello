@@ -315,17 +315,13 @@ var last_book = false;
 /// book_bin(线性内存常量)里,导出直接给地址,零拷贝。
 var last_book_name: u8 = 0;
 
-/// ⑥ MPC 开关与置信度系数(mpct,典型 1.64 ≈ 95% 单侧)。flag=0 关闭。
-export fn engineSetMpc(flag: u32, mpct: f32) void {
-    search.mpc_enabled = flag != 0;
-    search.mpc_mpct = mpct;
-}
-
-/// ⑥b 尾盘 MPC:exact 求解的纯精确带下沿(空位数)。>0 时「空数 > 下沿+1」
-/// 的求解节点允许中局验证剪枝(概率性,engineExact() 届时报 0);
-/// 0 = 关闭(现状)。典型用法:engineThink 的 end 抬到 20,这里给 16。
-export fn engineSetEndMpc(pure: u32) void {
-    search.mpc_end_pure = @intCast(pure);
+/// ⑥ PC(ProbCut)开关与置信度系数(pct,典型 1.64 ≈ 95% 单侧)。
+/// flag=0 关闭。中盘:dv4 单一深度对零窗口验证(见 search.zig PC_STAGES);
+/// 尾盘:exact 求解内 dv4@E≥12 + dv10@E≥18 两级全窗验证剪枝(概率性,
+/// engineExact() 届时报 0)。
+export fn engineSetPc(flag: u32, pct: f32) void {
+    search.pc_enabled = flag != 0;
+    search.pc_pct = pct;
 }
 
 /// 0 = 就绪;非 0 = 失败步(见 pattern.failStage 的取值)
@@ -447,9 +443,9 @@ export fn engineDepth() u32 {
 /// 这一手是否给出了**可信的精确解**。
 /// ⚠ 预算耗尽时必须报 0:残局分支在 aborted 时返回的是「前置中层迭代的最后一轮」,
 ///   只是个启发式估值,UI 若拿它当终局判决就会显示凭空的"胜 N 子"(踩过)。
-/// ⚠ ⑥b 尾盘 MPC 命中过剪枝的求解同样必须报 0:结果含概率成分,不是精确解。
+/// ⚠ 尾盘 PC 命中过剪枝的求解同样必须报 0:结果含概率成分,不是精确解。
 export fn engineExact() u32 {
-    if (search.aborted or search.mpc_end_used) return 0;
+    if (search.aborted or search.pc_end_used) return 0;
     return if (last.exact or last.endgame) 1 else 0;
 }
 export fn engineNodesLo() u32 {

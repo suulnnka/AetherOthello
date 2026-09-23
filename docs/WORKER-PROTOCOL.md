@@ -87,7 +87,6 @@ git diff main legacy_js -- docs/WORKER-PROTOCOL.md tools/probe-contract.mjs tool
   opp: [lo, hi],                    // 对方位板
   level,                            // **本引擎**难度表的下标(见上;跨实现不可比)
   depth,                            // 可选:覆盖该档位的搜索深度上限(见下)
-  endMpc,                           // 可选:覆盖该档位的尾盘 MPC 带下沿(见下)
   empties,                          // 64 - 双方子数(state 回包里有,UI 透传即可)
 }
 ```
@@ -111,16 +110,16 @@ engineRootMove / engineRootScore / engineRootExact / engineRootTrue` 导出
 - **中局**(启发式):**真值着法 ±1 子**内均匀随机(engineRootTrue=1 才入池,
   第 0 项恒真值,池永不空)。
 
-### think 的 `depth` / `endMpc`:可选覆盖
+### think 的 `depth`:可选覆盖
 
-`depth` **只替换该档位的深度上限**,`end` / `budget` 仍取档位。缺省(不传 /
+`depth` **只替换该档位的搜索深度上限**,`end` / `budget` 仍取档位。缺省(不传 /
 `null` / `NaN`)时行为与不带该字段完全一致,`depthMax` 回包反映**实际生效**的值。
-`endMpc` 同理**只替换尾盘 MPC 带下沿**(0 = 关;仅带 ⑥b 实现的引擎消费,
-无该实现的引擎忽略)。UI 都不需要这两个字段 —— UI 要的是"这一档的完整体验",
-不是孤立的参数;它们存在的理由是标定与跨实现对打:两边的难度表本来就不同
-(wasm 默认档 d12、legacy_js 默认档 d8),不把参数钉住就分不清"棋力差"
-来自实现还是来自参数。
+UI 不需要这个字段 —— UI 要的是"这一档的完整体验",不是孤立的参数;它存在的
+理由是标定与跨实现对打:两边的难度表本来就不同(wasm 默认档 d12、legacy_js
+默认档 d8),不把参数钉住就分不清"棋力差"来自实现还是来自参数。
 `tools/match-branches.mjs` 的 `--depth` 就走 `depth` 字段(默认 6 层)。
+(历史:`endMpc` 可选覆盖随 2026-09-23 MPC→两级 PC 重构退役 —— 尾盘剪枝
+不再有可调的带下沿,旧客户端多发的该字段被忽略。)
 
 ### state:局面规则事实(合法性 / 翻子 / 数子 / 终局 / 胜者)
 

@@ -298,15 +298,6 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
 
     if (ply + 2 >= MAX_PLY or depth <= 0) {
         if (exact) {
-            // 混合残局(⑥b,mpc_end_pure>0 时启用):叶子落在纯精确带内,
-            // 不做评估 —— 直接窗口内完全求解(子解共享 TT,≤16 空很便宜)。
-            // 下沿内深度给足(+4 留虚着余量),其内部节点空数 ≤ 带 → 不再触发尾盘 MPC。
-            // ⚠ 同 ply 重入:④ 的不变式要求进入时 ply_inc[ply] 已描述 b ——
-            //   当前节点恰好满足;挪到 ply+2 会读到未初始化状态(wasm OOB)。
-            //   叶子随即返回,不会再读本节点的着法 scratch,同 ply 无冲突。
-            if (mpc_end_pure > 0 and 64 - b.discs() <= mpc_end_pure) {
-                return search(b, @intCast(64 - b.discs() + 4), alpha, beta, ply, true);
-            }
             return terminalScore(b);
         }
         evals += 1;
@@ -338,56 +329,65 @@ fn search(b: rules.Board, depth: i32, alpha_in: f32, beta_in: f32, ply: u32, exa
         beta = c.beta;
     }
 
-    // ⑥b 尾盘 MPC:exact 求解在纯精确带之上,用中局 dv2 全窗搜索估计真实
-    // 分值,远离窗口即剪(跨尺度误差由 σ_end 兜住;mpct=1.64 时阈值约
-    // 15~17 子,98%+ 置信带)。命中剪枝必须置 mpc_end_used。
-    if (exact and mpc_end_pure > 0 and mpc_mpct > 0) {
+    // 尾盘 PC(两级接力):exact 求解里空数 ≥ 各级下限的节点,用中局全窗搜索
+    // 估计真实分,远离窗口即剪(跨尺度误差由各级 σ 兜住)。一级 dv4 覆盖
+    // E≥12(高阈值,验证近乎免费);二级 dv10 只在 E≥18 深空节点 —— 那是
+    // 求解最贵的顶部两层(仅 end≥19 档位存在),阈值不到一级一半,验证成本
+    // 0.05~0.9% 子树。窗口无界(求解根 / 首着全窗)时阈值条件不可能命中,
+    // 直接跳过省验证成本。命中剪枝必须置 pc_end_used —— 概率分不得当终局判决。
+    if (exact and pc_enabled) {
         const empt_i: i32 = @intCast(64 - b.discs());
-        if (empt_i > mpc_end_pure + 1) { // 下沿内(≤pure+1)子树本来就便宜,纯精确
-            const thr = mpc_mpct * mpcEndSigma(@floatFromInt(empt_i));
-            const saved = mpc_enabled;
-            mpc_enabled = false; // 验证是中局语义,不带 MPC(也防递归互扰)
-            const v = search(b, 2, -INF, INF, ply, false);
-            mpc_enabled = saved;
-            if (!aborted) {
-                if (v >= beta + thr) {
-                    mpc_end_used = true;
-                    return beta;
-                }
-                if (v <= alpha - thr) {
-                    mpc_end_used = true;
-                    return alpha;
+        if (empt_i >= PC_END_STAGES[0].min_empties and (alpha > -INF or beta < INF)) {
+            inline for (PC_END_STAGES) |st| {
+                if (empt_i >= st.min_empties) {
+                    const thr = pc_pct * st.sigma;
+                    const saved = pc_enabled;
+                    pc_enabled = false; // 验证是中局语义,不带 PC(也防递归互扰)
+                    const v = search(b, st.dv, -INF, INF, ply, false);
+                    pc_enabled = saved;
+                    if (!aborted) {
+                        if (v >= beta + thr) {
+                            pc_end_used = true;
+                            return beta;
+                        }
+                        if (v <= alpha - thr) {
+                            pc_end_used = true;
+                            return alpha;
+                        }
+                    }
                 }
             }
         }
     }
 
-    // ⑥ MPC:中局节点估值远离窗口时,浅层零窗口验证代替完整搜索。
-    // 失败即回完整搜索,只损失验证成本;σ 偏差方向已由拟合余量兜住。
-    if (mpc_enabled and !exact and depth >= MPC_MIN_DEPTH and mpc_root_depth - depth >= MPC_IGNORE) {
-        // dv = 深度的 1/4,**向上**取整到偶数,再对齐原深度奇偶。取整方向不是
-        // 随便选的:σ 拟合面(tools/fit-mpc.mjs PAIRS)按 d12↔dv4 采的,向下
-        // 取偶会让 d12 落回 dv2,偏离标定面 → σ 系统性偏小 → 过剪。
-        const dv: i32 = @intCast((((@as(u32, @bitCast(depth)) >> 2) + 1) & 0xFE) ^ (@as(u32, @bitCast(depth)) & 1));
+    // ⑥ PC:中局节点估值远离窗口时,用 dv4 零窗口浅验证剪明显脱离窗口的
+    // 节点;验证不过再走完整搜索 —— 失败只损失验证成本。σ 为深度对的实测零中心
+    // SD × 1.12(tools/probe-pc.mjs;σ 偏大只是少剪,偏小会剪错,宁大勿小)。
+    // 触发带按标定面定:深度超 PC_MAX_DEPTH(消息级 depth 覆盖)不剪;空数
+    // < PC_MIN_EMPTIES 不剪 —— E17~25 中残过渡带实测净亏 19%(σ 峰值区,
+    // 阈值打不响、验证白付),E≥26 两档实测净省 5.6~8%(ab-pc A/B)。
+    if (pc_enabled and !exact and depth >= PC_MIN_DEPTH and depth <= PC_MAX_DEPTH and pc_root_depth - depth >= PC_IGNORE and 64 - b.discs() >= PC_MIN_EMPTIES) {
         const eval0 = evalInc(b, ply);
-        const sig = mpc_mpct * mpcSigma(@floatFromInt(64 - b.discs()), @floatFromInt(dv));
-        const err0 = sig;
-        const errS = sig;
-        // 上截:估值 ≥ beta + err0 → 验证 zero-window (beta+errS-ε, beta+errS)
-        if (eval0 >= beta + err0 and beta + errS < 64.0) {
-            const saved = mpc_enabled;
-            mpc_enabled = false;
-            const v = search(b, dv, beta + errS - eps(false), beta + errS, ply, exact);
-            mpc_enabled = saved;
-            if (!aborted and v >= beta + errS) return beta;
-        }
-        // 下截:估值 ≤ alpha - err0 → 验证 (alpha-errS, alpha-errS+ε)
-        if (eval0 <= alpha - err0 and alpha - errS > -64.0) {
-            const saved = mpc_enabled;
-            mpc_enabled = false;
-            const v = search(b, dv, alpha - errS, alpha - errS + eps(false), ply, exact);
-            mpc_enabled = saved;
-            if (!aborted and v <= alpha - errS) return alpha;
+        inline for (PC_STAGES) |st| {
+            if (depth >= st.min_depth) {
+                const err = pc_pct * st.sigma;
+                // 上截:估值 ≥ beta + err → 验证 zero-window (beta+err−ε, beta+err)
+                if (eval0 >= beta + err and beta + err < 64.0) {
+                    const saved = pc_enabled;
+                    pc_enabled = false;
+                    const v = search(b, st.dv, beta + err - eps(false), beta + err, ply, false);
+                    pc_enabled = saved;
+                    if (!aborted and v >= beta + err) return beta;
+                }
+                // 下截:估值 ≤ alpha - err → 验证 (alpha-err, alpha-err+ε)
+                if (eval0 <= alpha - err and alpha - err > -64.0) {
+                    const saved = pc_enabled;
+                    pc_enabled = false;
+                    const v = search(b, st.dv, alpha - err, alpha - err + eps(false), ply, false);
+                    pc_enabled = saved;
+                    if (!aborted and v <= alpha - err) return alpha;
+                }
+            }
         }
     }
 
@@ -568,42 +568,54 @@ pub fn publishRoot(mvs: []const u6, scs: []const f32, trues: []const bool, n: u3
     }
 }
 
-// ── ⑥ MPC(Multi-ProbCut)────────────────────────────────────────────────
-// 思想对齐 Egaroucid probcut.hpp:节点估值落在窗口外足够远时,用一次
-// **浅层零窗口验证搜索**代替完整搜索;误差界 σ 来自本引擎的实测分差
-// (tools/fit-mpc.mjs 采集拟合,零中心标准差 + 12% 安全余量 —— σ 偏大只是
-// 少剪,偏小会剪错,宁大勿小)。σ 模型:σ = c0 + c1·empties + c2·d_verify。
-// c2 < 0(验证越深误差越小)成立的前提是采样对贴着 dv 公式的映射
-// (8↔2 / 10↔2 / 12↔4,见 fit-mpc.mjs PAIRS)—— 模型没有 d 项,c2 兼职
-// 「节点更深 → 误差更大」的替身,采样偏离运行时映射会把 σ 拟歪。
-pub threadlocal var mpc_enabled: bool = false;
-pub threadlocal var mpc_mpct: f32 = 0;
-/// 当前根深度(rootSearch 每轮设置):Egaroucid 的 first_depth - depth ≥ 5
-/// 保证离根太近的节点不做 MPC(根附近的剪枝误差会被整棵树放大)。
-pub threadlocal var mpc_root_depth: i32 = 0;
-const MPC_SIGMA = [4]f32{ 11.667, -0.0665, -0.7164, 0 };
-const MPC_MIN_DEPTH: i32 = 8; // 验证搜索自身也要有点质量
-const MPC_IGNORE: i32 = 2; // 距根过近不剪(Egaroucid 用 5,那是 d20+ 的世界;
-// 我们的档位顶到 d10,IGNORE=5 会让条件区间为空 —— 10-5=5 < MIN_DEPTH 8)
+// ── ⑥ PC(ProbCut,中盘单一深度对)─────────────────────────────────────
+// 思想对齐 Egaroucid probcut.hpp,参数全部本引擎自采(tools/probe-pc.mjs):
+// 节点估值落在窗口外足够远时,用一次浅层零窗口验证搜索代替完整搜索。
+// 单一级 (dv4, d≥8):σ 单常量 = 该深度对实测零中心 SD × 1.12(σ 偏大
+// 只是少剪,偏小会剪错,宁大勿小);触发带上 σ 随节点深度单调,常量按
+// 带内最差深度定,更浅的节点只会更保守。曾有两级方案 (dv8,d≥11) 与
+// dv6@10 接力,前者在 stock 档位(≤d12 + PC_IGNORE=2)永不触发、后者
+// 实测边缘阈值多剪≈0/验证白付(中位 +0.5% 节点),2026-09-23 均按用户
+// 决策/数据否掉 —— d12 内一级就是全部头寸(-4~-8% 节点)。
+pub threadlocal var pc_enabled: bool = false;
+pub threadlocal var pc_pct: f32 = 0;
+/// 当前根深度(rootSearch 每轮设置):距根过近的节点不剪 —— 根附近的剪枝
+/// 误差会被整棵树放大(Egaroucid 同款保护,PROBCUT_SHALLOW_IGNORE)。
+pub threadlocal var pc_root_depth: i32 = 0;
+const PC_MIN_DEPTH: i32 = 8; // 验证搜索自身也要有点质量
+const PC_MAX_DEPTH: i32 = 12; // 标定面上限;更深的节点(消息级 depth 覆盖)σ 未标定,不剪
+const PC_MIN_EMPTIES: i32 = 26; // 空数下限:E17~25 中残过渡带实测净亏(见下方 ⑥ 注释)
+const PC_IGNORE: i32 = 2; // 距根过近不剪(Egaroucid 用 5,那是 d20+ 的世界;
+// 我们的档位顶到 d12,IGNORE=5 会让条件区间为空 —— 10-5=5 < MIN_DEPTH 8)
+const PCStage = struct { dv: i32, min_depth: i32, sigma: f32 };
+const PC_STAGES = [_]PCStage{
+    .{ .dv = 4, .min_depth = 8, .sigma = PC_SIGMA1 },
+};
+// probe-pc 实测(2026-09-23,主探针 140 局面 n≈17-19/桶 + 补充 80 局面),
+// 触发带 E≥26 × d∈[8,12] 上的最差桶:σ(dv4) 取 (8,4)@E44+ = 8.2(开局
+// 浅层分歧大),×1.12 已含(宁大勿小:偏大只是少剪,偏小会剪错)。
+const PC_SIGMA1: f32 = 9.2;
 
-inline fn mpcSigma(empties: f32, d_verify: f32) f32 {
-    return @max(2.0, MPC_SIGMA[0] + MPC_SIGMA[1] * empties + MPC_SIGMA[2] * d_verify);
-}
-
-// ── ⑥b 尾盘 MPC(exact 求解内的概率剪枝)────────────────────────────
-/// 纯精确带下沿(空位数):>0 时 exact 求解在「空数 > 下沿+1」的节点允许
-/// 用中局 dv2 评估搜索做剪枝(概率性);0 = 关闭(exact 内永不 MPC,现状)。
-pub threadlocal var mpc_end_pure: i32 = 0;
-/// 本轮求解是否命中过尾盘剪枝(think 复位):命中过则 engineExact()
-/// 必须报 0 —— 概率分不得当终局判决(UI 会显示凭空的"胜 N 子")。
-pub threadlocal var mpc_end_used: bool = false;
-/// σ_end(E):中局 dv2 搜索分 vs 精确解的零中心 SD 线性模型,已含 12% 余量。
-/// probe-endmpc 实测 14/16/18 空(n=6~8/桶,量级级精度;随机局面偏难,
-/// 对真实局面偏保守)。无静态前置过滤:静态估值在该带误差 19~21 子,
-/// 门槛会大到永不触发,研究文档建议直接放弃。
-inline fn mpcEndSigma(empt: f32) f32 {
-    return @max(4.0, 23.5 - 0.73 * empt);
-}
+// ── 尾盘 PC(exact 求解内的概率剪枝,两级深度对)──────────────────────
+/// 空数 ≥ 各级下限的 exact 节点允许中局验证剪枝;命中过剪枝的
+/// 求解 pc_end_used 置位,engineExact() 报 0 —— 概率分不得当终局判决
+/// (UI 会显示凭空的"胜 N 子")。无静态前置过滤:静态估值在该带误差
+// ~20 子,门槛会大到永不触发(endgame-mpc-study §3 实测结论)。
+pub threadlocal var pc_end_used: bool = false;
+const PC_ENDStage = struct { dv: i32, min_empties: i32, sigma: f32 };
+const PC_END_STAGES = [_]PC_ENDStage{
+    .{ .dv = 4, .min_empties = 12, .sigma = PC_END_SIGMA1 },
+    .{ .dv = 10, .min_empties = 18, .sigma = PC_END_SIGMA2 },
+};
+// 一级 σ:中局 dv4 搜索分 vs 精确解的零中心 SD,触发带 [12,17] 空最差档
+// (E14, 8.90)×1.12 = 10.0(probe-pc 2026-09-23 实测 n=5~10/档;浅层分有
+// 系统性负偏置,零中心口径已吸收)。验证成本仅为子树的 0.02%~0.9%。
+const PC_END_SIGMA1: f32 = 10.0;
+// 二级 σ(深空深验证,E≥18):dv10 搜索分 vs 精确解,2026-09-23 实测
+// E18/19/20 = 3.94/5.64/3.76~4.22(最差带 E19,n=2~6;E19 求解方差极大,
+// 6 局 4 局 800M 内解不完,样本偏难取保守)×1.12 ≈ 6.3,阈值 10.3,不到
+// 一级 16.4 的七成。验证成本 0.05~0.9% 子树。
+const PC_END_SIGMA2: f32 = 6.3;
 
 pub const Result = struct {
     move: i8 = -1,
@@ -644,7 +656,7 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
         n += 1;
     }
     ply_cnt[0] = n;
-    mpc_root_depth = depth;
+    pc_root_depth = depth;
     if (n == 1) {
         // 唯一着法也真搜(2026-09-20 用户决策「就不能再搜一下吗」):照 k==0 的
         // 首着调用搜子局面,score 是真搜索值(深度/节点照常累计),不再是占位 0。
@@ -754,7 +766,7 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
     nodes = 0;
     evals = 0;
     aborted = false;
-    mpc_end_used = false;
+    pc_end_used = false;
     node_limit = node_budget;
 
     const empties = 64 - b.discs();
@@ -782,16 +794,11 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
     for (&rv) |*x| x.* = 0;
 
     if (empties <= endgame_empty) {
-        // 残局:先前置中层迭代加深定根排序,再(混合)求解。
-        // ⑥b 混合模式(mpc_end_pure>0 且带内还有 ≥3 空):主搜只搜
-        // (空数−下沿)层 —— 内部节点中局排序/窗口,叶子落进纯精确带后
-        // 转窗口内完全求解(search 的 depth<=0 分支);带内(≤下沿+1)不触发
-        // 尾盘 MPC。下层空间里的 ⑥b 概率剪枝继续在带上沿兜底。
-        const hybrid: bool = mpc_end_pure > 0 and empties > @as(i32, mpc_end_pure) + 2;
-        const solve_depth: i32 = if (hybrid) @as(i32, @intCast(empties)) - mpc_end_pure else @as(i32, @intCast(empties)) + 2;
+        // 残局:先前置中层迭代加深定根排序,再完全求解。空数 ≥
+        // 一级下限(12)的节点由尾盘 PC 兜着(概率性,engineExact() 报 0)。
+        const solve_depth: i32 = @as(i32, @intCast(empties)) + 2;
         var d: u32 = 2;
-        var pre = @min(@min((empties + 1) / 2, depth_max), empties);
-        if (hybrid) pre = @min(pre, @as(u32, @intCast(solve_depth)));
+        const pre = @min(@min((empties + 1) / 2, depth_max), empties);
         // 预搜限吃预算的 1/3:预算被预搜耗尽时,完全求解还留得下大头,
         // engineExact() 不会因为"预搜炫技"而丢掉精确性。
         const saved_limit = node_limit;
@@ -822,7 +829,7 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
             last.nodes = nodes;
             return last;
         }
-        // 纯精确:空数 +2 余量(虚着不消耗深度);混合:空数 − 下沿(叶子即带内)
+        // 纯精确:空数 +2 余量(虚着不消耗深度)
         var r = rootSearch(b, solve_depth, true, &order, &rv) catch return last;
         r.nodes = nodes;
         if (aborted) {

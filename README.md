@@ -60,8 +60,8 @@ python3 -m http.server 8000     # 仓库根起服,打开 http://localhost:8000/
   (来源与许可见 `book/README.md`)。命中 0 节点秒回,值容差加权随机保持
   开局多样性,UI 标注「开局库 · 名字 · 估值」
 - **搜索**:PVS 负极大 + 迭代加深 + 置换表(中局/残局共表,`EXACT_SALT` 隔开)
-  + 残局奇偶排序 + 残局完全求解 + 中局 MPC(大师及以上档启用);**难度按节点
-  预算**而不是墙钟时间
+  + 残局奇偶排序 + 残局完全求解 + ProbCut(中盘单一深度对 dv4 + 尾盘求解内
+  dv4/dv10 两级接力,大师及以上档启用);**难度按节点预算**而不是墙钟时间
 - **训练**:`src/zig/train.zig` 自对弈 + 稀疏最小二乘(LSQR,共轭梯度已退役)。
   评估是线性的,所以不需要 9,475² 的正规矩阵,只需稀疏两趟扫描。
   另有**监督模式**(推荐):`--data=<Egaroucid Train Data>` 直接对
@@ -93,7 +93,8 @@ node tools/probe-exact.mjs       # 残局精确解:与 JS 参照实现逐局面�
 - `docs/engine-improvement-plan.md`:对标 Egaroucid web 的 11 项施工清单,
   已全部落地(附完成记录、对打验收、遗留清单与**验收工具箱命令速查** ——
   全部测试/基准/探针命令以那张表为准)。
-- `docs/endgame-mpc-study.md`:残局 MPC 专项研究(⑥b 已按草图实现,默认关)。
+- `docs/endgame-mpc-study.md`:残局 MPC 专项研究(⑥b 曾按草图实现,2026-09-23
+  随 MPC→两级 PC 重构退役;数据与结论仍是尾盘 PC 的标定依据)。
 - `docs/WORKER-PROTOCOL.md`:Worker 消息接口(请求/应答字段与语义)。
 - `book/README.md`:开局书数据资源 —— 局面/开局名/估值的来源、许可与再生成。
 

@@ -203,18 +203,10 @@ self.onmessage = (e) => {
     const bud = Number(lv.budget) || 0;
     /* `seed` 已退役(2026-09-20 随机化事故后重构):引擎侧选着随机整体移除,
      * 旧客户端多发的 seed 字段直接忽略 —— think 行为不再随任何种子变化。 */
-    /* ⑥ MPC:按档位的置信度系数开关(缺省/老回包无 mpc 字段 = 关)。 */
-    if (typeof X.engineSetMpc === 'function') {
-      X.engineSetMpc(lv.mpc ? 1 : 0, Number(lv.mpc) || 0);
-    }
-    /* ⑥b 尾盘 MPC:endMpc = 纯精确带下沿(空数)。>0 时 exact 求解在
-     * 「空数 > 下沿+1」的节点允许中局验证剪枝(概率性,engineExact() 报 0),
-     * think 的 end 要相应抬到带口(end > endMpc + 2 才有带)。⚠ 实测 20 空
-     * 入带单步 40~200M 节点 —— 启用必须配 ≥60M 预算,否则带内全是预算熔断、
-     * 白白丢精度。0/缺省 = 关;消息级 d.endMpc 覆盖供标定/对打用(同 d.depth)。 */
-    const endMpc = Number.isFinite(d.endMpc) ? Number(d.endMpc) : Number(lv.endMpc) || 0;
-    if (endMpc > 0 && typeof X.engineSetEndMpc === 'function') {
-      X.engineSetEndMpc(endMpc >>> 0);
+    /* ⑥ PC:按档位的置信度系数开关(缺省/老回包无 pc 字段 = 关)。中盘
+     * dv4 + 尾盘 dv4/dv10,全部由引擎内常量定,协议不再暴露第二字段。 */
+    if (typeof X.engineSetPc === 'function') {
+      X.engineSetPc(lv.pc ? 1 : 0, Number(lv.pc) || 0);
     }
     const t0 = performance.now();
     const mv = X.engineThink(
