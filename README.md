@@ -93,8 +93,9 @@ node tools/probe-exact.mjs       # 残局精确解:与 JS 参照实现逐局面�
 - `docs/engine-improvement-plan.md`:对标 Egaroucid web 的 11 项施工清单,
   已全部落地(附完成记录、对打验收、遗留清单与**验收工具箱命令速查** ——
   全部测试/基准/探针命令以那张表为准)。
-- `docs/endgame-mpc-study.md`:残局 MPC 专项研究(⑥b 曾按草图实现,2026-09-23
-  随 MPC→两级 PC 重构退役;数据与结论仍是尾盘 PC 的标定依据)。
+- `docs/endgame-mpc-study.md`:残局求解与尾盘剪枝的现行结构 —— 档位/end
+  阈值、求解成本与 σ 实测、尾盘 PC 两级深度对、中盘 PC 一笔、已试未采纳
+  与未尝试清单(前身是残局 MPC 专项研究,原貌见 git)。
 - `docs/WORKER-PROTOCOL.md`:Worker 消息接口(请求/应答字段与语义)。
 - `book/README.md`:开局书数据资源 —— 局面/开局名/估值的来源、许可与再生成。
 
