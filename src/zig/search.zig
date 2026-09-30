@@ -126,14 +126,14 @@ inline fn hintStore(b: rules.Board, mv: u6) void {
 
 /// 排序用位置权重(与主分支 W64 同表,i8 装得下):角贵、角邻负分。
 const W64O = [64]i8{
-    120, -20, 20,  5,  5, 20, -20, 120,
+    120, -20, 20, 5,  5,  20, -20, 120,
     -20, -40, -5, -5, -5, -5, -40, -20,
-    20,  -5,  15,  3,  3, 15,  -5,  20,
-    5,   -5,   3,  3,  3,  3,  -5,   5,
-    5,   -5,   3,  3,  3,  3,  -5,   5,
-    20,  -5,  15,  3,  3, 15,  -5,  20,
+    20,  -5,  15, 3,  3,  15, -5,  20,
+    5,   -5,  3,  3,  3,  3,  -5,  5,
+    5,   -5,  3,  3,  3,  3,  -5,  5,
+    20,  -5,  15, 3,  3,  15, -5,  20,
     -20, -40, -5, -5, -5, -5, -40, -20,
-    120, -20, 20,  5,  5, 20, -20, 120,
+    120, -20, 20, 5,  5,  20, -20, 120,
 };
 
 /// 每层暂存区(照抄主分支做法:按 ply 索引的全局数组,避免每层重新分配)
@@ -628,7 +628,9 @@ pub const Result = struct {
 };
 
 /// 根搜索一轮:照主分支的 runRoot,按上一轮得分重排 order 以便下一轮迭代。
-fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f32) !Result {
+/// win_a/win_b 是根窗(期望搜索用;全窗传 -INF/INF)。窗口不改变极小极大值,
+/// 只让远离窗口的子树早停 —— 含住时结果与全窗等价。
+fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f32, win_a: f32, win_b: f32) !Result {
     const moves = &ply_moves[0];
     const flips = &ply_flips[0];
     const scores = &ply_scores[0];
@@ -697,8 +699,8 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
         }
     }
 
-    var alpha: f32 = -INF;
-    const beta = INF;
+    var alpha: f32 = win_a;
+    const beta = win_b;
     var k: u32 = 0;
     while (k < n) : (k += 1) {
         const idx = order[k];
@@ -755,6 +757,38 @@ fn rootSearch(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f
     };
 }
 
+/// 期望窗口的一轮根搜索(2026-09-30 加):首轮无锚,全窗定锚;此后根窗收窄到
+/// 锚 ±ASPIRATION_W,两侧失败对称翻倍重搜、两败开全窗。含住时与全窗逐位等价,
+/// 只是省掉远离窗口的子树;失败/中止轮的结果一律丢弃(root_v 是有偏界,
+/// publishRoot 的 trues 标记虽诚实,但清单一律被下一轮(含住的那次)覆盖)。
+/// 宽度与不对称变体均在 CG 移植版实测过:±6 对 ±12 直接对决 300 局
+///   166-123(z≈2.5,±6 胜);对关闭:±6 54-39、±12 56-40/37-21 两批,
+///   ±8/±10 落在噪声下方。不对称变体(fail-high 直接采纳/阶梯下移)均更差。
+const ASPIRATION_W: f32 = 6.0;
+fn rootSearchAsp(b: rules.Board, depth: i32, exact: bool, order: []u32, root_v: []f32, anchor: *f32, have_anchor: *bool) ?Result {
+    if (!have_anchor.*) {
+        const r = rootSearch(b, depth, exact, order, root_v, -INF, INF) catch return null;
+        if (aborted) return null;
+        anchor.* = r.score;
+        have_anchor.* = true;
+        return r;
+    }
+    var w: f32 = ASPIRATION_W;
+    var fail: u32 = 0;
+    while (true) {
+        const a0: f32 = if (fail >= 2) -INF else anchor.* - w;
+        const b0: f32 = if (fail >= 2) INF else anchor.* + w;
+        const r = rootSearch(b, depth, exact, order, root_v, a0, b0) catch return null;
+        if (aborted) return null;
+        if (r.score > a0 and r.score < b0) {
+            anchor.* = r.score;
+            return r;
+        }
+        w *= 2.0;
+        fail += 1;
+    }
+}
+
 /// 迭代加深主入口。node_budget = 0 表示不限;超预算时返回**上一个完整深度**的结果
 /// (半途而废的那轮结果一律丢弃 —— 零窗口搜索被打断时 root_v 是有偏的)。
 /// 选着(容差/同分随机)不在这里:引擎只保证 root_* 清单与返回值一致,
@@ -783,7 +817,7 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
         var rv: [MAX_MOVES]f32 = undefined;
         for (&order) |*x| x.* = 0;
         for (&rv) |*x| x.* = 0;
-        var r = rootSearch(b, 0, false, &order, &rv) catch return .{};
+        var r = rootSearch(b, 0, false, &order, &rv, -INF, INF) catch return .{};
         r.nodes = nodes;
         return r;
     }
@@ -805,7 +839,7 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
         if (node_budget != 0) node_limit = @min(node_limit, nodes + node_budget / PRE_ENDGAME_FRAC);
         var last: Result = .{};
         while (d <= pre) : (d += 2) {
-            last = rootSearch(b, @intCast(d), false, &order, &rv) catch break;
+            last = rootSearch(b, @intCast(d), false, &order, &rv, -INF, INF) catch break;
             if (aborted or last.only) break;
         }
         node_limit = saved_limit;
@@ -830,7 +864,7 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
             return last;
         }
         // 纯精确:空数 +2 余量(虚着不消耗深度)
-        var r = rootSearch(b, solve_depth, true, &order, &rv) catch return last;
+        var r = rootSearch(b, solve_depth, true, &order, &rv, -INF, INF) catch return last;
         r.nodes = nodes;
         if (aborted) {
             last.nodes = nodes;
@@ -844,26 +878,31 @@ pub fn think(b: rules.Board, depth_max: u32, endgame_empty: u32, node_budget: u6
     var res: Result = .{};
     var d: u32 = 2;
     const top = @min(depth_max, empties + 2);
+    // 期望窗口的锚:跨轮共享(同深度内失败重搜不换锚),跨档位(阶梯三段)也共享
+    var anchor: f32 = 0;
+    var have_anchor = false;
     if (top >= 8) {
         // ⑤b 三段阶梯 {top-4, top-2, top}:排序补项(⑤)之后,内部节点有了
         // 像样的先验排序,by-2 全阶梯的早期轮次只剩 TT 预热价值,不值 10~20%
         // 的节点(Egaroucid 同为分段预搜)。浅档(top < 8)保持全阶梯,反正跑不深。
+        // [2026-09-30 复测] 期望窗落地后重试过"从 4 全跑":20 局面完成 d12
+        // 节点 +2.9%/耗时 +10%,同预算对打 24-14-2 落败 —— 阶梯维持原判。
         for ([_]u32{ top -| 4, top -| 2, top }) |dd| {
             if (dd < 2) continue;
-            const r = rootSearch(b, @intCast(dd), false, &order, &rv) catch break;
+            const r = rootSearchAsp(b, @intCast(dd), false, &order, &rv, &anchor, &have_anchor) orelse break;
             if (aborted) break;
             res = r;
             res.nodes = nodes;
         }
     } else while (d <= top) : (d += 2) {
-        const r = rootSearch(b, @intCast(d), false, &order, &rv) catch break;
+        const r = rootSearchAsp(b, @intCast(d), false, &order, &rv, &anchor, &have_anchor) orelse break;
         if (aborted) break;
         res = r;
         res.nodes = nodes;
     }
     if (res.move == -1) {
         // 一个深度都没跑完(预算极小):退回单层静态结果,至少给出一个合法着法
-        var r = rootSearch(b, 1, false, &order, &rv) catch return .{};
+        var r = rootSearch(b, 1, false, &order, &rv, -INF, INF) catch return .{};
         r.nodes = nodes;
         return r;
     }
