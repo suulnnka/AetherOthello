@@ -109,10 +109,8 @@ node tools/probe-exact.mjs       # 残局精确解:与 JS 参照实现逐局面�
   解压后合并成单文件供 `--data` 使用:
   `unzip Egaroucid_Train_Data.zip -d out/ && cat out/<数据目录>/*.txt > out/egaroucid_all.txt`。
 - **开局书估值**:开局库的**局面与开局名均为公开数据收集**(公开定石树 +
-  社区目录);唯一取自 Egaroucid 开局书的是估值与最佳着法 —— 那是可自算的
-  搜索结果(本引擎的残局完全求解跑一遍同样能得出),取现成纯粹为了省时间,
-  不是不可替代的数据依赖。上游文件为 GPL-3.0,本体不入库、不再分发;
-  明细与自算备案见 `book/README.md`。
+  社区目录);取自 Egaroucid 开局书的是估值与最佳着法 —— 数据可自算
+  取现成纯粹为了省时间,不是不可替代的数据依赖。
 
 ## License
 
